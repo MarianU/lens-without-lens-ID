@@ -4,12 +4,18 @@
  */
 
 
-export type ReleaseChannel = "alpha" | "beta" | "latest";
+export type ReleaseChannel = "alpha" | "beta" | "latest" | "none";
+
+const noChannel: UpdateChannel = {
+  id: "none",
+  label: "None",
+  moreStableUpdateChannel: null,
+};
 
 const latestChannel: UpdateChannel = {
   id: "latest",
   label: "Stable",
-  moreStableUpdateChannel: null,
+  moreStableUpdateChannel: noChannel,
 };
 
 const betaChannel: UpdateChannel = {
@@ -25,6 +31,7 @@ const alphaChannel: UpdateChannel = {
 };
 
 export const updateChannels = {
+  none: noChannel,
   latest: latestChannel,
   beta: betaChannel,
   alpha: alphaChannel,
