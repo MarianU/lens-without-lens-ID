@@ -13,12 +13,13 @@ const releaseChannelInjectable = createInitializableState({
     const currentReleaseChannel = buildSemanticVersion.get().prerelease[0];
 
     switch (currentReleaseChannel) {
+      case "none":
       case "latest":
       case "beta":
       case "alpha":
         return currentReleaseChannel;
       default:
-        return "latest";
+        return "none";
     }
   },
 });
