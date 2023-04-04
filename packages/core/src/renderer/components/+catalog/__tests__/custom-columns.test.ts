@@ -11,7 +11,6 @@ import { getDiForUnitTesting } from "../../../getDiForUnitTesting";
 import type { AdditionalCategoryColumnRegistration, CategoryColumnRegistration } from "../custom-category-columns";
 import type { CategoryColumns, GetCategoryColumnsParams } from "../columns/get.injectable";
 import getCategoryColumnsInjectable from "../columns/get.injectable";
-import hotbarStoreInjectable from "../../../../common/hotbars/store.injectable";
 import extensionInjectable from "../../../../extensions/extension-loader/extension/extension.injectable";
 import currentlyInClusterFrameInjectable from "../../../routes/currently-in-cluster-frame.injectable";
 
@@ -44,9 +43,8 @@ describe("Custom Category Columns", () => {
   let getCategoryColumns: (params: GetCategoryColumnsParams) => CategoryColumns;
 
   beforeEach(() => {
-    di = getDiForUnitTesting({ doGeneralOverrides: true });
+    di = getDiForUnitTesting();
 
-    di.override(hotbarStoreInjectable, () => ({}));
     di.override(currentlyInClusterFrameInjectable, () => false);
 
     getCategoryColumns = di.inject(getCategoryColumnsInjectable);

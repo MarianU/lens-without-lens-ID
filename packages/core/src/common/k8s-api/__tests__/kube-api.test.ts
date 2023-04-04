@@ -11,22 +11,31 @@ import { Deployment, Pod, PodApi } from "../endpoints";
 import { getDiForUnitTesting } from "../../../renderer/getDiForUnitTesting";
 import type { Fetch } from "../../fetch/fetch.injectable";
 import fetchInjectable from "../../fetch/fetch.injectable";
-import type { CreateKubeApiForRemoteCluster } from "../create-kube-api-for-remote-cluster.injectable";
-import createKubeApiForRemoteClusterInjectable from "../create-kube-api-for-remote-cluster.injectable";
+import type {
+  CreateKubeApiForRemoteCluster,
+} from "../create-kube-api-for-remote-cluster.injectable";
+import createKubeApiForRemoteClusterInjectable
+  from "../create-kube-api-for-remote-cluster.injectable";
 import type { AsyncFnMock } from "@async-fn/jest";
 import asyncFn from "@async-fn/jest";
-import { flushPromises } from "../../test-utils/flush-promises";
+import { flushPromises } from "@k8slens/test-utils";
 import createKubeJsonApiInjectable from "../create-kube-json-api.injectable";
 import type { IKubeWatchEvent } from "../kube-watch-event";
-import type { KubeJsonApiDataFor } from "../kube-object";
-import AbortController from "abort-controller";
-import setupAutoRegistrationInjectable from "../../../renderer/before-frame-starts/runnables/setup-auto-registration.injectable";
-import { createMockResponseFromStream, createMockResponseFromString } from "../../../test-utils/mock-responses";
-import storesAndApisCanBeCreatedInjectable from "../../../renderer/stores-apis-can-be-created.injectable";
-import directoryForUserDataInjectable from "../../app-paths/directory-for-user-data/directory-for-user-data.injectable";
-import createClusterInjectable from "../../../main/create-cluster/create-cluster.injectable";
-import hostedClusterInjectable from "../../../renderer/cluster-frame-context/hosted-cluster.injectable";
-import directoryForKubeConfigsInjectable from "../../app-paths/directory-for-kube-configs/directory-for-kube-configs.injectable";
+import type { KubeJsonApiDataFor, KubeStatusData } from "../kube-object";
+import setupAutoRegistrationInjectable
+  from "../../../renderer/before-frame-starts/runnables/setup-auto-registration.injectable";
+import {
+  createMockResponseFromStream,
+  createMockResponseFromString,
+} from "../../../test-utils/mock-responses";
+import storesAndApisCanBeCreatedInjectable
+  from "../../../renderer/stores-apis-can-be-created.injectable";
+import directoryForUserDataInjectable
+  from "../../app-paths/directory-for-user-data/directory-for-user-data.injectable";
+import hostedClusterInjectable
+  from "../../../renderer/cluster-frame-context/hosted-cluster.injectable";
+import directoryForKubeConfigsInjectable
+  from "../../app-paths/directory-for-kube-configs/directory-for-kube-configs.injectable";
 import apiKubeInjectable from "../../../renderer/k8s/api-kube.injectable";
 import type { DiContainer } from "@ogre-tools/injectable";
 import deploymentApiInjectable from "../endpoints/deployment.api.injectable";
@@ -36,26 +45,23 @@ import namespaceApiInjectable from "../endpoints/namespace.api.injectable";
 // NOTE: this is fine because we are testing something that only exported
 // eslint-disable-next-line no-restricted-imports
 import { PodsApi } from "../../../extensions/common-api/k8s-api";
+import { Cluster } from "../../cluster/cluster";
 
 describe("createKubeApiForRemoteCluster", () => {
   let createKubeApiForRemoteCluster: CreateKubeApiForRemoteCluster;
   let fetchMock: AsyncFnMock<Fetch>;
 
   beforeEach(async () => {
-    const di = getDiForUnitTesting({ doGeneralOverrides: true });
+    const di = getDiForUnitTesting();
 
     di.override(directoryForUserDataInjectable, () => "/some-user-store-path");
     di.override(directoryForKubeConfigsInjectable, () => "/some-kube-configs");
     di.override(storesAndApisCanBeCreatedInjectable, () => true);
 
-    const createCluster = di.inject(createClusterInjectable);
-
-    di.override(hostedClusterInjectable, () => createCluster({
+    di.override(hostedClusterInjectable, () => new Cluster({
       contextName: "some-context-name",
       id: "some-cluster-id",
       kubeConfigPath: "/some-path-to-a-kubeconfig",
-    }, {
-      clusterServerUrl: "https://localhost:8080",
     }));
 
     fetchMock = asyncFn();
@@ -145,7 +151,7 @@ describe("KubeApi", () => {
   let di: DiContainer;
 
   beforeEach(async () => {
-    di = getDiForUnitTesting({ doGeneralOverrides: true });
+    di = getDiForUnitTesting();
 
     di.override(directoryForUserDataInjectable, () => "/some-user-store-path");
     di.override(directoryForKubeConfigsInjectable, () => "/some-kube-configs");
@@ -154,15 +160,12 @@ describe("KubeApi", () => {
     fetchMock = asyncFn();
     di.override(fetchInjectable, () => fetchMock);
 
-    const createCluster = di.inject(createClusterInjectable);
     const createKubeJsonApi = di.inject(createKubeJsonApiInjectable);
 
-    di.override(hostedClusterInjectable, () => createCluster({
+    di.override(hostedClusterInjectable, () => new Cluster({
       contextName: "some-context-name",
       id: "some-cluster-id",
       kubeConfigPath: "/some-path-to-a-kubeconfig",
-    }, {
-      clusterServerUrl: "https://localhost:8080",
     }));
 
     di.override(apiKubeInjectable, () => createKubeJsonApi({
@@ -452,6 +455,54 @@ describe("KubeApi", () => {
         it("resolves the call", async () => {
           expect(await deleteRequest).toBeDefined();
         });
+      });
+    });
+
+    describe("eviction-api as better replacement for pod.delete() request", () => {
+      let evictRequest: Promise<string>;
+
+      beforeEach(async () => {
+        evictRequest = api.evict({ name: "foo", namespace: "test" });
+      });
+
+      it("requests evicting a pod in given namespace", () => {
+        expect(fetchMock.mock.lastCall).toMatchObject([
+          "http://127.0.0.1:9999/api-kube/api/v1/namespaces/test/pods/foo/eviction",
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+            method: "post",
+          },
+        ]);
+      });
+
+      it("should resolve the call with >=200 <300 http code", async () => {
+        fetchMock.resolveSpecific(
+          ["http://127.0.0.1:9999/api-kube/api/v1/namespaces/test/pods/foo/eviction"],
+          createMockResponseFromString("http://127.0.0.1:9999/api-kube/api/v1/namespaces/test/pods/foo/eviction", JSON.stringify({
+            apiVersion: "policy/v1",
+            kind: "Status",
+            code: 201,
+            status: "all good",
+          } as KubeStatusData)),
+        );
+
+        expect(await evictRequest).toBe("201: all good");
+      });
+
+      it("should throw in case of error", async () => {
+        fetchMock.resolveSpecific(
+          ["http://127.0.0.1:9999/api-kube/api/v1/namespaces/test/pods/foo/eviction"],
+          createMockResponseFromString("http://127.0.0.1:9999/api-kube/api/v1/namespaces/test/pods/foo/eviction", JSON.stringify({
+            apiVersion: "policy/v1",
+            kind: "Status",
+            code: 500,
+            status: "something went wrong",
+          } as KubeStatusData)),
+        );
+
+        expect(async () => evictRequest).rejects.toBe("500: something went wrong");
       });
     });
   });

@@ -4,8 +4,8 @@
  */
 
 import { action, computed, makeObservable, observable, reaction } from "mobx";
-import type { Disposer } from "../utils";
-import { waitUntilDefined, autoBind, includes, rejectPromiseBy } from "../utils";
+import type { Disposer } from "@k8slens/utilities";
+import { waitUntilDefined, includes, rejectPromiseBy, object } from "@k8slens/utilities";
 import type { KubeJsonApiDataFor, KubeObject } from "./kube-object";
 import { KubeStatus } from "./kube-object";
 import type { IKubeWatchEvent } from "./kube-watch-event";
@@ -17,9 +17,8 @@ import type { Patch } from "rfc6902";
 import type { Logger } from "../logger";
 import assert from "assert";
 import type { PartialDeep } from "type-fest";
-import { entries } from "../utils/objects";
-import AbortController from "abort-controller";
 import type { ClusterContext } from "../../renderer/cluster-frame-context/cluster-frame-context";
+import autoBind from "auto-bind";
 
 export type OnLoadFailure = (error: unknown) => void;
 
@@ -89,7 +88,7 @@ export interface KubeObjectStoreDependencies {
   readonly logger: Logger;
 }
 
-export abstract class KubeObjectStore<
+export class KubeObjectStore<
   K extends KubeObject = KubeObject,
   A extends KubeApi<K, D> = KubeApi<K, KubeJsonApiDataFor<K>>,
   D extends KubeJsonApiDataFor<K> = KubeApiDataFrom<K, A>,
@@ -179,7 +178,7 @@ export abstract class KubeObjectStore<
       return this.items.filter((item: K) => {
         const itemLabels = item.metadata.labels || {};
 
-        return entries(labels)
+        return object.entries(labels)
           .every(([key, value]) => itemLabels[key] === value);
       });
     }
@@ -388,7 +387,9 @@ export abstract class KubeObjectStore<
   }
 
   async remove(item: K) {
-    await this.api.delete({ name: item.getName(), namespace: item.getNs() });
+    // Some k8s apis might implement special more fine-grained "delete" request for resources (e.g. pod.api.ts)
+    // See also: https://kubernetes.io/docs/concepts/scheduling-eviction/api-eviction/
+    await this.api.evict({ name: item.getName(), namespace: item.getNs() });
     this.selectedItemsIds.delete(item.getId());
   }
 

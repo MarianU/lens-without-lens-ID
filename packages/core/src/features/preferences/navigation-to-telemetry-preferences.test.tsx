@@ -9,8 +9,8 @@ import { getApplicationBuilder } from "../../renderer/components/test-utils/get-
 import navigateToTelemetryPreferencesInjectable from "./common/navigate-to-telemetry-preferences.injectable";
 import sentryDataSourceNameInjectable from "../../common/vars/sentry-dsn-url.injectable";
 import type { FakeExtensionOptions } from "../../renderer/components/test-utils/get-extension-fake";
-import type { Discover } from "../../renderer/components/test-utils/discovery-of-html-elements";
-import { discoverFor } from "../../renderer/components/test-utils/discovery-of-html-elements";
+import type { Discover } from "@k8slens/react-testing-library-discovery";
+import { discoverFor } from "@k8slens/react-testing-library-discovery";
 
 describe("preferences - navigation to telemetry preferences", () => {
   let builder: ApplicationBuilder;
@@ -142,7 +142,7 @@ describe("preferences - navigation to telemetry preferences", () => {
     let discover: Discover;
 
     beforeEach(async () => {
-      builder.beforeWindowStart((windowDi) => {
+      builder.beforeWindowStart(({ windowDi }) => {
         windowDi.override(sentryDataSourceNameInjectable, () => "some-sentry-dns-url");
       });
 
@@ -177,7 +177,7 @@ describe("preferences - navigation to telemetry preferences", () => {
     let discover: Discover;
 
     beforeEach(async () => {
-      builder.beforeWindowStart((windowDi) => {
+      builder.beforeWindowStart(({ windowDi }) => {
         windowDi.override(sentryDataSourceNameInjectable, () => null);
       });
 

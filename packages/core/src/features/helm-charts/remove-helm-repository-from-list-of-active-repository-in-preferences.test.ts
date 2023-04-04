@@ -14,12 +14,12 @@ import helmBinaryPathInjectable from "../../main/helm/helm-binary-path.injectabl
 import getActiveHelmRepositoriesInjectable from "../../main/helm/repositories/get-active-helm-repositories/get-active-helm-repositories.injectable";
 import type { HelmRepo } from "../../common/helm/helm-repo";
 import requestPublicHelmRepositoriesInjectable from "./child-features/preferences/renderer/adding-of-public-helm-repository/public-helm-repositories/request-public-helm-repositories.injectable";
-import type { AsyncResult } from "../../common/utils/async-result";
+import type { AsyncResult } from "@k8slens/utilities";
 
 describe("remove helm repository from list of active repositories in preferences", () => {
   let builder: ApplicationBuilder;
   let rendered: RenderResult;
-  let getActiveHelmRepositoriesMock: AsyncFnMock<() => Promise<AsyncResult<HelmRepo[]>>>;
+  let getActiveHelmRepositoriesMock: AsyncFnMock<() => AsyncResult<HelmRepo[]>>;
   let execFileMock: AsyncFnMock<ExecFile>;
 
   beforeEach(async () => {
@@ -28,13 +28,13 @@ describe("remove helm repository from list of active repositories in preferences
     execFileMock = asyncFn();
     getActiveHelmRepositoriesMock = asyncFn();
 
-    builder.beforeApplicationStart((mainDi) => {
+    builder.beforeApplicationStart(({ mainDi }) => {
       mainDi.override(getActiveHelmRepositoriesInjectable, () => getActiveHelmRepositoriesMock);
       mainDi.override(execFileInjectable, () => execFileMock);
       mainDi.override(helmBinaryPathInjectable, () => "some-helm-binary-path");
     });
 
-    builder.beforeWindowStart((windowDi) => {
+    builder.beforeWindowStart(({ windowDi }) => {
       windowDi.override(requestPublicHelmRepositoriesInjectable, () => async () => []);
     });
 

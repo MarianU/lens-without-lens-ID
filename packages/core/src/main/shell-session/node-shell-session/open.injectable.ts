@@ -14,12 +14,16 @@ import loggerInjectable from "../../../common/logger.injectable";
 import createKubeJsonApiForClusterInjectable from "../../../common/k8s-api/create-kube-json-api-for-cluster.injectable";
 import computeShellEnvironmentInjectable from "../../../features/shell-sync/main/compute-shell-environment.injectable";
 import spawnPtyInjectable from "../spawn-pty.injectable";
-import userShellSettingInjectable from "../../../common/user-store/shell-setting.injectable";
 import appNameInjectable from "../../../common/vars/app-name.injectable";
 import buildVersionInjectable from "../../vars/build-version/build-version.injectable";
 import emitAppEventInjectable from "../../../common/app-event-bus/emit-event.injectable";
 import statInjectable from "../../../common/fs/stat.injectable";
 import createKubeApiInjectable from "../../../common/k8s-api/create-kube-api.injectable";
+import loadProxyKubeconfigInjectable from "../../cluster/load-proxy-kubeconfig.injectable";
+import kubeconfigManagerInjectable from "../../kubeconfig-manager/kubeconfig-manager.injectable";
+import userShellSettingInjectable from "../../../features/user-preferences/common/shell-setting.injectable";
+import shellSessionEnvsInjectable from "../shell-envs.injectable";
+import shellSessionProcessesInjectable from "../processes.injectable";
 
 export interface NodeShellSessionArgs {
   websocket: WebSocket;
@@ -34,13 +38,15 @@ const openNodeShellSessionInjectable = getInjectable({
   id: "open-node-shell-session",
   instantiate: (di): OpenNodeShellSession => {
     const createKubectl = di.inject(createKubectlInjectable);
-    const dependencies: NodeShellSessionDependencies = {
+    const dependencies: Omit<NodeShellSessionDependencies, "proxyKubeconfigPath" | "loadProxyKubeconfig" | "directoryContainingKubectl"> = {
       isMac: di.inject(isMacInjectable),
       isWindows: di.inject(isWindowsInjectable),
       logger: di.inject(loggerInjectable),
       userShellSetting: di.inject(userShellSettingInjectable),
       appName: di.inject(appNameInjectable),
       buildVersion: di.inject(buildVersionInjectable),
+      shellSessionEnvs: di.inject(shellSessionEnvsInjectable),
+      shellSessionProcesses: di.inject(shellSessionProcessesInjectable),
       createKubeJsonApiForCluster: di.inject(createKubeJsonApiForClusterInjectable),
       computeShellEnvironment: di.inject(computeShellEnvironmentInjectable),
       spawnPty: di.inject(spawnPtyInjectable),
@@ -50,8 +56,18 @@ const openNodeShellSessionInjectable = getInjectable({
     };
 
     return async (args) => {
-      const kubectl = createKubectl(args.cluster.version);
-      const session = new NodeShellSession(dependencies, { kubectl, ...args });
+      const kubectl = createKubectl(args.cluster.version.get());
+      const kubeconfigManager = di.inject(kubeconfigManagerInjectable, args.cluster);
+      const loadProxyKubeconfig = di.inject(loadProxyKubeconfigInjectable, args.cluster);
+      const proxyKubeconfigPath = await kubeconfigManager.ensurePath();
+      const directoryContainingKubectl = await kubectl.binDir();
+
+      const session = new NodeShellSession({
+        ...dependencies,
+        loadProxyKubeconfig,
+        proxyKubeconfigPath,
+        directoryContainingKubectl,
+      }, { kubectl, ...args });
 
       return session.open();
     };

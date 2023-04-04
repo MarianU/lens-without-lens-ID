@@ -17,8 +17,8 @@ import requestPublicHelmRepositoriesInjectable from "./child-features/preference
 import isPathInjectable from "../../renderer/components/input/validators/is-path.injectable";
 import showSuccessNotificationInjectable from "../../renderer/components/notifications/show-success-notification.injectable";
 import showErrorNotificationInjectable from "../../renderer/components/notifications/show-error-notification.injectable";
-import type { AsyncResult } from "../../common/utils/async-result";
-import { testUsingFakeTime } from "../../common/test-utils/use-fake-time";
+import type { AsyncResult } from "@k8slens/utilities";
+import { testUsingFakeTime } from "../../test-utils/use-fake-time";
 
 describe("add custom helm repository in preferences", () => {
   let builder: ApplicationBuilder;
@@ -26,7 +26,7 @@ describe("add custom helm repository in preferences", () => {
   let showErrorNotificationMock: jest.Mock;
   let rendered: RenderResult;
   let execFileMock: AsyncFnMock<ExecFile>;
-  let getActiveHelmRepositoriesMock: AsyncFnMock<() => Promise<AsyncResult<HelmRepo[]>>>;
+  let getActiveHelmRepositoriesMock: AsyncFnMock<() => AsyncResult<HelmRepo[]>>;
 
   beforeEach(async () => {
     jest.useFakeTimers();
@@ -40,13 +40,13 @@ describe("add custom helm repository in preferences", () => {
     showSuccessNotificationMock = jest.fn();
     showErrorNotificationMock = jest.fn();
 
-    builder.beforeApplicationStart((mainDi) => {
+    builder.beforeApplicationStart(({ mainDi }) => {
       mainDi.override(getActiveHelmRepositoriesInjectable, () => getActiveHelmRepositoriesMock);
       mainDi.override(execFileInjectable, () => execFileMock);
       mainDi.override(helmBinaryPathInjectable, () => "some-helm-binary-path");
     });
 
-    builder.beforeWindowStart((windowDi) => {
+    builder.beforeWindowStart(({ windowDi }) => {
       windowDi.override(requestPublicHelmRepositoriesInjectable, () => async () => []);
       windowDi.override(showSuccessNotificationInjectable, () => showSuccessNotificationMock);
       windowDi.override(showErrorNotificationInjectable, () => showErrorNotificationMock);

@@ -13,14 +13,13 @@ import { KubeObject, KubeStatus, isKubeStatusData } from "./kube-object";
 import byline from "byline";
 import type { IKubeWatchEvent } from "./kube-watch-event";
 import type { KubeJsonApiData, KubeJsonApi } from "./kube-json-api";
-import type { Disposer } from "../utils";
-import { isDefined, noop, WrappedAbortController } from "../utils";
+import type { Disposer } from "@k8slens/utilities";
+import { isDefined, noop, WrappedAbortController } from "@k8slens/utilities";
 import type { RequestInit, Response } from "@k8slens/node-fetch";
 import type { Patch } from "rfc6902";
 import assert from "assert";
 import type { PartialDeep } from "type-fest";
 import type { Logger } from "../logger";
-import type AbortController from "abort-controller";
 import { matches } from "lodash/fp";
 import { makeObservable, observable } from "mobx";
 
@@ -581,6 +580,15 @@ export class KubeApi<
     }
 
     return parsed;
+  }
+
+  /**
+   * Some k8s resources might implement special "delete" (e.g. pod.api)
+   * See also: https://kubernetes.io/docs/concepts/scheduling-eviction/api-eviction/
+   * By default should work same as KubeObject.remove()
+   */
+  async evict(desc: DeleteResourceDescriptor): Promise<KubeStatus | KubeObject | unknown> {
+    return this.delete(desc);
   }
 
   async delete({ propagationPolicy = "Background", ...desc }: DeleteResourceDescriptor) {

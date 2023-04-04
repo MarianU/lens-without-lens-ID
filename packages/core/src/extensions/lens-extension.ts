@@ -3,31 +3,12 @@
  * Licensed under MIT License. See LICENSE in root directory for more information.
  */
 
-import type { InstalledExtension } from "./extension-discovery/extension-discovery";
 import { action, computed, makeObservable, observable } from "mobx";
-import type { PackageJson } from "type-fest";
-import { disposer } from "../common/utils";
+import { disposer } from "@k8slens/utilities";
 import type { LensExtensionDependencies } from "./lens-extension-set-dependencies";
 import type { ProtocolHandlerRegistration } from "../common/protocol-handler/registration";
+import type { InstalledExtension, LegacyLensExtension, LensExtensionId, LensExtensionManifest } from "@k8slens/legacy-extensions";
 
-export type LensExtensionId = string; // path to manifest (package.json)
-export type LensExtensionConstructor = new (...args: ConstructorParameters<typeof LensExtension>) => LensExtension;
-
-export interface LensExtensionManifest extends PackageJson {
-  name: string;
-  version: string;
-  main?: string; // path to %ext/dist/main.js
-  renderer?: string; // path to %ext/dist/renderer.js
-  /**
-   * Supported Lens version engine by extension could be defined in `manifest.engines.lens`
-   * Only MAJOR.MINOR version is taken in consideration.
-   */
-  engines: {
-    lens: string; // "semver"-package format
-    npm?: string;
-    node?: string;
-  };
-}
 
 export const lensExtensionDependencies = Symbol("lens-extension-dependencies");
 export const Disposers = Symbol("disposers");
@@ -37,7 +18,7 @@ export class LensExtension<
    * @ignore
    */
   Dependencies extends LensExtensionDependencies = LensExtensionDependencies,
-> {
+> implements LegacyLensExtension {
   readonly id: LensExtensionId;
   readonly manifest: LensExtensionManifest;
   readonly manifestPath: string;
@@ -62,7 +43,10 @@ export class LensExtension<
 
   constructor({ id, manifest, manifestPath, isBundled }: InstalledExtension) {
     makeObservable(this);
+
+    // id is the name of the manifest
     this.id = id;
+
     this.manifest = manifest;
     this.manifestPath = manifestPath;
     this.isBundled = !!isBundled;
@@ -80,6 +64,11 @@ export class LensExtension<
     return this.manifest.description;
   }
 
+  // Name of extension for persisting data
+  get storeName() {
+    return this.manifest.storeName || this.name;
+  }
+
   /**
    * @ignore
    */
@@ -93,7 +82,8 @@ export class LensExtension<
    * folder name.
    */
   async getExtensionFileFolder(): Promise<string> {
-    return this[lensExtensionDependencies].fileSystemProvisionerStore.requestDirectory(this.id);
+    // storeName is read from the manifest and has a fallback to the manifest name, which equals id
+    return this[lensExtensionDependencies].ensureHashedDirectoryForExtension(this.storeName);
   }
 
   @action

@@ -3,12 +3,11 @@
  * Licensed under MIT License. See LICENSE in root directory for more information.
  */
 import { comparer, reaction } from "mobx";
-import type { Disposer } from "../../common/utils";
-import { disposer, getOrInsert, noop, WrappedAbortController } from "../../common/utils";
+import type { Disposer } from "@k8slens/utilities";
+import { disposer, getOrInsert, noop, WrappedAbortController } from "@k8slens/utilities";
 import { once } from "lodash";
 import type { Logger } from "../../common/logger";
 import type { KubeObjectStoreLoadAllParams, KubeObjectStoreSubscribeParams } from "../../common/k8s-api/kube-object.store";
-import AbortController from "abort-controller";
 import type { ClusterContext } from "../cluster-frame-context/cluster-frame-context";
 
 // Kubernetes watch-api client
@@ -103,7 +102,7 @@ export class KubeWatchApi {
       return () => this.#watch.dec(store);
     }
 
-    namespaces ??= this.dependencies.clusterContext?.contextNamespaces ?? [];
+    namespaces ??= this.dependencies.clusterContext.contextNamespaces ?? [];
 
     let childController = new WrappedAbortController(parent);
     const unsubscribe = disposer();

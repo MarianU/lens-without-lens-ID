@@ -7,10 +7,10 @@ import { ipcRenderer } from "electron";
 import { EventEmitter } from "events";
 import { makeObservable, observable, reaction, when } from "mobx";
 import { broadcastMessage, ipcMainHandle, ipcRendererOn } from "../../common/ipc";
-import { isErrnoException, toJS } from "../../common/utils";
-import type { ExtensionsStore } from "../extensions-store/extensions-store";
+import { toJS } from "../../common/utils";
+import { isErrnoException } from "@k8slens/utilities";
 import type { ExtensionLoader } from "../extension-loader";
-import type { LensExtensionId, LensExtensionManifest } from "../lens-extension";
+import type { InstalledExtension, LensExtensionId, LensExtensionManifest } from "@k8slens/legacy-extensions";
 import type { ExtensionInstallationStateStore } from "../extension-installation-state-store/extension-installation-state-store";
 import { extensionDiscoveryStateChannel } from "../../common/ipc/extension-handling";
 import { requestInitialExtensionDiscovery } from "../../renderer/ipc";
@@ -30,10 +30,10 @@ import type { GetDirnameOfPath } from "../../common/path/get-dirname.injectable"
 import type { GetRelativePath } from "../../common/path/get-relative-path.injectable";
 import type { RemovePath } from "../../common/fs/remove.injectable";
 import type TypedEventEmitter from "typed-emitter";
+import type { IsExtensionEnabled } from "../../features/extensions/enabled/common/is-enabled.injectable";
 
 interface Dependencies {
   readonly extensionLoader: ExtensionLoader;
-  readonly extensionsStore: ExtensionsStore;
   readonly extensionInstallationStateStore: ExtensionInstallationStateStore;
   readonly extensionPackageRootDirectory: string;
   readonly resourcesDirectory: string;
@@ -41,6 +41,7 @@ interface Dependencies {
   readonly isProduction: boolean;
   readonly fileSystemSeparator: string;
   readonly homeDirectoryPath: string;
+  isExtensionEnabled: IsExtensionEnabled;
   isCompatibleExtension: (manifest: LensExtensionManifest) => boolean;
   installExtension: (name: string) => Promise<void>;
   readJsonFile: ReadJson;
@@ -56,22 +57,6 @@ interface Dependencies {
   getBasenameOfPath: GetBasenameOfPath;
   getDirnameOfPath: GetDirnameOfPath;
   getRelativePath: GetRelativePath;
-}
-
-export interface InstalledExtension {
-  id: LensExtensionId;
-
-  readonly manifest: LensExtensionManifest;
-
-  // Absolute path to the non-symlinked source folder,
-  // e.g. "/Users/user/.k8slens/extensions/helloworld"
-  readonly absolutePath: string;
-
-  // Absolute to the symlinked package.json file
-  readonly manifestPath: string;
-  readonly isBundled: boolean; // defined in project root's package.json
-  readonly isCompatible: boolean;
-  isEnabled: boolean;
 }
 
 const logModule = "[EXTENSION-DISCOVERY]";
@@ -216,9 +201,6 @@ export class ExtensionDiscovery {
         const extension = await this.loadExtensionFromFolder(absPath);
 
         if (extension) {
-          // Remove a broken symlink left by a previous installation if it exists.
-          await this.dependencies.removePath(extension.manifestPath);
-
           // Install dependencies for the new extension
           await this.dependencies.installExtension(extension.absolutePath);
 
@@ -352,7 +334,7 @@ export class ExtensionDiscovery {
     try {
       const manifest = await this.dependencies.readJsonFile(manifestPath) as unknown as LensExtensionManifest;
       const id = isBundled ? manifestPath : this.getInstalledManifestPath(manifest.name);
-      const isEnabled = this.dependencies.extensionsStore.isEnabled({ id, isBundled });
+      const isEnabled = this.dependencies.isExtensionEnabled({ id, isBundled });
       const extensionDir = this.dependencies.getDirnameOfPath(manifestPath);
       const npmPackage = this.dependencies.joinPaths(extensionDir, `${manifest.name}-${manifest.version}.tgz`);
       const absolutePath = this.dependencies.isProduction && await this.dependencies.pathExists(npmPackage)

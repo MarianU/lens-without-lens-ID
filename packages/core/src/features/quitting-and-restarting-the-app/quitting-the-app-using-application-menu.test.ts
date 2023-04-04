@@ -9,7 +9,7 @@ import type { ClusterManager } from "../../main/cluster/manager";
 import exitAppInjectable from "../../main/electron-app/features/exit-app.injectable";
 import clusterManagerInjectable from "../../main/cluster/manager.injectable";
 import stopServicesAndExitAppInjectable from "../../main/stop-services-and-exit-app.injectable";
-import { advanceFakeTime, testUsingFakeTime } from "../../common/test-utils/use-fake-time";
+import { testUsingFakeTime, advanceFakeTime } from "../../test-utils/use-fake-time";
 
 describe("quitting the app using application menu", () => {
   describe("given application has started", () => {
@@ -22,17 +22,15 @@ describe("quitting the app using application menu", () => {
 
       builder = getApplicationBuilder();
 
-      builder.beforeApplicationStart(
-        (mainDi) => {
-          mainDi.unoverride(stopServicesAndExitAppInjectable);
+      builder.beforeApplicationStart(({ mainDi }) => {
+        mainDi.unoverride(stopServicesAndExitAppInjectable);
 
-          clusterManagerStub = { stop: jest.fn() } as unknown as ClusterManager;
-          mainDi.override(clusterManagerInjectable, () => clusterManagerStub);
+        clusterManagerStub = { stop: jest.fn() } as unknown as ClusterManager;
+        mainDi.override(clusterManagerInjectable, () => clusterManagerStub);
 
-          exitAppMock = jest.fn();
-          mainDi.override(exitAppInjectable, () => exitAppMock);
-        },
-      );
+        exitAppMock = jest.fn();
+        mainDi.override(exitAppInjectable, () => exitAppMock);
+      });
 
       await builder.render();
     });

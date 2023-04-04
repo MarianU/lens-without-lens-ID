@@ -3,25 +3,27 @@
  * Licensed under MIT License. See LICENSE in root directory for more information.
  */
 import emitAppEventInjectable from "../../common/app-event-bus/emit-event.injectable";
-import getClusterByIdInjectable from "../../common/cluster-store/get-by-id.injectable";
 import { kubectlApplyAllChannel } from "../../common/kube-helpers/channels";
-import createResourceApplierInjectable from "../resource-applier/create-resource-applier.injectable";
-import { getRequestChannelListenerInjectable } from "../utils/channel/channel-listeners/listener-tokens";
+import getClusterByIdInjectable from "../../features/cluster/storage/common/get-by-id.injectable";
+import resourceApplierInjectable from "../resource-applier/create-resource-applier.injectable";
+import { getRequestChannelListenerInjectable } from "@k8slens/messaging";
 
 const kubectlApplyAllChannelHandlerInjectable = getRequestChannelListenerInjectable({
+  id: "kubectl-apply-all-channel-handler-listener",
   channel: kubectlApplyAllChannel,
-  handler: (di) => {
+  getHandler: (di) => {
     const getClusterById = di.inject(getClusterByIdInjectable);
     const emitAppEvent = di.inject(emitAppEventInjectable);
-    const createResourceApplier = di.inject(createResourceApplierInjectable);
 
-    return async ({
-      clusterId,
-      extraArgs,
-      resources,
-    }) => {
-      emitAppEvent({ name: "cluster", action: "kubectl-apply-all" });
+    return async (event) => {
+      const {
+        clusterId,
+        extraArgs,
+        resources,
+      } = event;
       const cluster = getClusterById(clusterId);
+
+      emitAppEvent({ name: "cluster", action: "kubectl-apply-all" });
 
       if (!cluster) {
         return {
@@ -30,7 +32,9 @@ const kubectlApplyAllChannelHandlerInjectable = getRequestChannelListenerInjecta
         };
       }
 
-      return createResourceApplier(cluster).kubectlApplyAll(resources, extraArgs);
+      const resourceApplier = di.inject(resourceApplierInjectable, cluster);
+
+      return resourceApplier.kubectlApplyAll(resources, extraArgs);
     };
   },
 });

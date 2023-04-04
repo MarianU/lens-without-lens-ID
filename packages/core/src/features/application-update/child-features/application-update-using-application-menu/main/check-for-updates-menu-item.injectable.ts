@@ -9,33 +9,41 @@ import processCheckingForUpdatesInjectable from "../../../main/process-checking-
 import showApplicationWindowInjectable from "../../../../../main/start-main-application/lens-window/show-application-window.injectable";
 import updatingIsEnabledInjectable from "../../../main/updating-is-enabled/updating-is-enabled.injectable";
 import isMacInjectable from "../../../../../common/vars/is-mac.injectable";
+import showMessagePopupInjectable from "../../../../../main/electron-app/features/show-message-popup.injectable";
 
 const checkForUpdatesMenuItemInjectable = getInjectable({
   id: "check-for-updates-menu-item",
 
   instantiate: (di) => {
-    const processCheckingForUpdates = di.inject(
-      processCheckingForUpdatesInjectable,
-    );
-
+    const processCheckingForUpdates = di.inject(processCheckingForUpdatesInjectable);
     const showApplicationWindow = di.inject(showApplicationWindowInjectable);
-
     const updatingIsEnabled = di.inject(updatingIsEnabledInjectable);
     const isMac = di.inject(isMacInjectable);
+    const showMessagePopup = di.inject(showMessagePopupInjectable);
 
     return {
       kind: "clickable-menu-item" as const,
       id: "check-for-updates",
       parentId: isMac ? "mac" : "help",
       orderNumber: isMac ? 20 : 50,
-      label: "Check for updates",
+      label: "Check for Updates...",
       isShown: updatingIsEnabled,
 
-      onClick: () => {
-        // Todo: implement using async/await
-        processCheckingForUpdates("application-menu").then(() =>
-          showApplicationWindow(),
-        );
+      onClick: async () => {
+        const { updateIsReadyToBeInstalled } = await processCheckingForUpdates("application-menu");
+
+        if (updateIsReadyToBeInstalled) {
+          await showApplicationWindow();
+        } else {
+          showMessagePopup(
+            "No Updates Available",
+            "You're all good",
+            "You've got the latest version of Lens,\nthanks for staying on the ball.",
+            {
+              textWidth: 300,
+            },
+          );
+        }
       },
     };
   },

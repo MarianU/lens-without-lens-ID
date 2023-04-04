@@ -22,16 +22,13 @@ import navigateToPreferencesInjectable from "../../../features/preferences/commo
 import type { NavigateToHelmCharts } from "../../../common/front-end-routing/routes/cluster/helm/charts/navigate-to-helm-charts.injectable";
 import navigateToHelmChartsInjectable from "../../../common/front-end-routing/routes/cluster/helm/charts/navigate-to-helm-charts.injectable";
 import hostedClusterInjectable from "../../cluster-frame-context/hosted-cluster.injectable";
-import type { Cluster } from "../../../common/cluster/cluster";
-import startMainApplicationInjectable from "../../../main/start-main-application/start-main-application.injectable";
-import startFrameInjectable from "../../start-frame/start-frame.injectable";
+import { Cluster } from "../../../common/cluster/cluster";
 import type { NamespaceStore } from "../+namespaces/store";
 import historyInjectable from "../../navigation/history.injectable";
 import type { MinimalTrayMenuItem } from "../../../main/tray/electron-tray/electron-tray.injectable";
 import electronTrayInjectable from "../../../main/tray/electron-tray/electron-tray.injectable";
 import { getDiForUnitTesting as getRendererDi } from "../../getDiForUnitTesting";
 import { getDiForUnitTesting as getMainDi } from "../../../main/getDiForUnitTesting";
-import { overrideChannels } from "../../../test-utils/channel-fakes/override-channels";
 import assert from "assert";
 import { openMenu } from "react-select-event";
 import userEvent from "@testing-library/user-event";
@@ -42,7 +39,7 @@ import { navigateToRouteInjectionToken } from "../../../common/front-end-routing
 import type { LensMainExtension } from "../../../extensions/lens-main-extension";
 import type { LensExtension } from "../../../extensions/lens-extension";
 import extensionInjectable from "../../../extensions/extension-loader/extension/extension.injectable";
-import { renderFor } from "./renderFor";
+import { renderFor } from "@k8slens/test-utils";
 import { RootFrame } from "../../frames/root-frame/root-frame";
 import { ClusterFrame } from "../../frames/cluster-frame/cluster-frame";
 import hostedClusterIdInjectable from "../../cluster-frame-context/hosted-cluster-id.injectable";
@@ -56,21 +53,28 @@ import { applicationWindowInjectionToken } from "../../../main/start-main-applic
 import closeAllWindowsInjectable from "../../../main/start-main-application/lens-window/hide-all-windows/close-all-windows.injectable";
 import type { LensWindow } from "../../../main/start-main-application/lens-window/application-window/create-lens-window.injectable";
 import type { FakeExtensionOptions } from "./get-extension-fake";
-import { getExtensionFakeForMain, getExtensionFakeForRenderer } from "./get-extension-fake";
+import { getMainExtensionFakeWith, getRendererExtensionFakeWith } from "./get-extension-fake";
 import namespaceApiInjectable from "../../../common/k8s-api/endpoints/namespace.api.injectable";
 import { Namespace } from "../../../common/k8s-api/endpoints";
 import { getOverrideFsWithFakes } from "../../../test-utils/override-fs-with-fakes";
 import applicationMenuItemCompositeInjectable from "../../../features/application-menu/main/application-menu-item-composite.injectable";
 import { getCompositePaths } from "../../../common/utils/composite/get-composite-paths/get-composite-paths";
-import { discoverFor } from "./discovery-of-html-elements";
+import { discoverFor } from "@k8slens/react-testing-library-discovery";
 import { findComposite } from "../../../common/utils/composite/find-composite/find-composite";
 import shouldStartHiddenInjectable from "../../../main/electron-app/features/should-start-hidden.injectable";
 import fsInjectable from "../../../common/fs/fs.injectable";
 import joinPathsInjectable from "../../../common/path/join-paths.injectable";
 import homeDirectoryPathInjectable from "../../../common/os/home-directory-path.injectable";
-import { testUsingFakeTime } from "../../../common/test-utils/use-fake-time";
+import selectedNamespacesStorageInjectable from "../../../features/namespace-filtering/renderer/storage.injectable";
+import { registerFeature } from "@k8slens/feature-core";
+import { applicationFeatureForElectronMain, testUtils as applicationForElectronTestUtils } from "@k8slens/application-for-electron-main";
+import { applicationFeature, startApplicationInjectionToken } from "@k8slens/application";
+import { testUsingFakeTime } from "../../../test-utils/use-fake-time";
+import { sendMessageToChannelInjectionToken } from "@k8slens/messaging";
+import { getMessageBridgeFake } from "@k8slens/messaging-fake-bridge";
 
-type Callback = (di: DiContainer) => void | Promise<void>;
+type MainDiCallback = (container: { mainDi: DiContainer }) => void | Promise<void>;
+type WindowDiCallback = (container: { windowDi: DiContainer }) => void | Promise<void>;
 
 type LensWindowWithHelpers = LensWindow & { rendered: RenderResult; di: DiContainer };
 
@@ -113,10 +117,10 @@ export interface ApplicationBuilder {
   };
 
   allowKubeResource: (resource: KubeApiResourceDescriptor) => ApplicationBuilder;
-  beforeApplicationStart: (callback: Callback) => ApplicationBuilder;
-  afterApplicationStart: (callback: Callback) => ApplicationBuilder;
-  beforeWindowStart: (callback: Callback) => ApplicationBuilder;
-  afterWindowStart: (callback: Callback) => ApplicationBuilder;
+  beforeApplicationStart: (callback: MainDiCallback) => ApplicationBuilder;
+  afterApplicationStart: (callback: MainDiCallback) => ApplicationBuilder;
+  beforeWindowStart: (callback: WindowDiCallback) => ApplicationBuilder;
+  afterWindowStart: (callback: WindowDiCallback) => ApplicationBuilder;
 
   startHidden: () => Promise<void>;
   render: () => Promise<RenderResult>;
@@ -160,22 +164,30 @@ interface Environment {
 }
 
 export const getApplicationBuilder = () => {
-  const mainDi = getMainDi({
-    doGeneralOverrides: true,
-  });
+  const mainDi = getMainDi();
 
   runInAction(() => {
+    registerFeature(
+      mainDi,
+      applicationFeature,
+      applicationFeatureForElectronMain,
+    );
+
     mainDi.register(mainExtensionsStateInjectable);
   });
 
+  applicationForElectronTestUtils.overrideSideEffectsWithFakes(mainDi);
+
   testUsingFakeTime();
 
-  const { overrideForWindow, sendToWindow } = overrideChannels(mainDi);
+  const messageBridgeFake = getMessageBridgeFake();
 
-  const beforeApplicationStartCallbacks: Callback[] = [];
-  const afterApplicationStartCallbacks: Callback[] = [];
-  const beforeWindowStartCallbacks: Callback[] = [];
-  const afterWindowStartCallbacks: Callback[] = [];
+  messageBridgeFake.involve(mainDi);
+
+  const beforeApplicationStartCallbacks: MainDiCallback[] = [];
+  const afterApplicationStartCallbacks: MainDiCallback[] = [];
+  const beforeWindowStartCallbacks: WindowDiCallback[] = [];
+  const afterWindowStartCallbacks: WindowDiCallback[] = [];
 
   const overrideFsWithFakes = getOverrideFsWithFakes();
 
@@ -213,19 +225,23 @@ export const getApplicationBuilder = () => {
     },
   }));
 
-  const allowedResourcesState = observable.set<string>();
-
   const windowHelpers = new Map<string, { di: DiContainer; getRendered: () => RenderResult }>();
 
   const createElectronWindowFake: CreateElectronWindow = (configuration) => {
     const windowId = configuration.id;
 
-    const windowDi = getRendererDi({ doGeneralOverrides: true });
+    const windowDi = getRendererDi();
 
-    overrideForWindow(windowDi, windowId);
+    messageBridgeFake.involve(windowDi);
+
     overrideFsWithFakes(windowDi);
 
     runInAction(() => {
+      registerFeature(
+        windowDi,
+        applicationFeature,
+      );
+
       windowDi.register(rendererExtensionsStateInjectable);
     });
 
@@ -250,15 +266,15 @@ export const getApplicationBuilder = () => {
       loadFile: async () => {},
       loadUrl: async () => {
         for (const callback of beforeWindowStartCallbacks) {
-          await callback(windowDi);
+          await callback({ windowDi });
         }
 
-        const startFrame = windowDi.inject(startFrameInjectable);
+        const startApplication = windowDi.inject(startApplicationInjectionToken);
 
-        await startFrame();
+        await startApplication();
 
         for (const callback of afterWindowStartCallbacks) {
-          await callback(windowDi);
+          await callback({ windowDi });
         }
 
         const history = windowDi.inject(historyInjectable);
@@ -272,8 +288,10 @@ export const getApplicationBuilder = () => {
         );
       },
 
-      send: (arg) => {
-        sendToWindow(windowId, arg);
+      send: ({ channel: channelId, data }) => {
+        const sendMessageToChannel = mainDi.inject(sendMessageToChannelInjectionToken);
+
+        sendMessageToChannel({ id: channelId }, data);
       },
 
       reload: () => {
@@ -289,20 +307,20 @@ export const getApplicationBuilder = () => {
   const namespaces = observable.set<string>();
   const namespaceItems = observable.array<Namespace>();
   const selectedNamespaces = observable.set<string>();
-  const startMainApplication = mainDi.inject(startMainApplicationInjectable);
+  const startApplication = mainDi.inject(startApplicationInjectionToken);
 
-  const startApplication = async ({ shouldStartHidden }: { shouldStartHidden: boolean }) => {
+  const startApp = async ({ shouldStartHidden }: { shouldStartHidden: boolean }) => {
     mainDi.inject(lensProxyPortInjectable).set(42);
 
     for (const callback of beforeApplicationStartCallbacks) {
-      await callback(mainDi);
+      await callback({ mainDi });
     }
 
     mainDi.override(shouldStartHiddenInjectable, () => shouldStartHidden);
-    await startMainApplication();
+    await startApplication();
 
     for (const callback of afterApplicationStartCallbacks) {
-      await callback(mainDi);
+      await callback({ mainDi });
     }
 
     applicationHasStarted = true;
@@ -369,7 +387,12 @@ export const getApplicationBuilder = () => {
         namespaces.add(namespace);
         namespaceItems.replace(createNamespacesFor(namespaces));
       }),
-      select: action((namespace) => selectedNamespaces.add(namespace)),
+      select: action((namespace) => {
+        const selectedNamespacesStorage = builder.applicationWindow.only.di.inject(selectedNamespacesStorageInjectable);
+
+        selectedNamespaces.add(namespace);
+        selectedNamespacesStorage.set([...selectedNamespaces]);
+      }),
     },
     applicationMenu: {
       get items() {
@@ -500,19 +523,19 @@ export const getApplicationBuilder = () => {
     setEnvironmentToClusterFrame: () => {
       environment = environments.clusterFrame;
 
-      builder.beforeWindowStart((windowDi) => {
-        const clusterStub = {
+      builder.beforeWindowStart(({ windowDi }) => {
+        const cluster = new Cluster({
           id: "some-cluster-id",
-          accessibleNamespaces: observable.array(),
-          shouldShowResource: (kind) => allowedResourcesState.has(formatKubeApiResource(kind)),
-        } as Partial<Cluster> as Cluster;
+          contextName: "some-context-name",
+          kubeConfigPath: "/some-path-to-kube-config",
+        });
 
         windowDi.override(activeKubernetesClusterInjectable, () =>
-          computed(() => catalogEntityFromCluster(clusterStub)),
+          computed(() => catalogEntityFromCluster(cluster)),
         );
 
-        windowDi.override(hostedClusterIdInjectable, () => clusterStub.id);
-        windowDi.override(hostedClusterInjectable, () => clusterStub);
+        windowDi.override(hostedClusterIdInjectable, () => cluster.id);
+        windowDi.override(hostedClusterInjectable, () => cluster);
 
         // TODO: Figure out a way to remove this stub.
         windowDi.override(namespaceStoreInjectable, () => ({
@@ -569,49 +592,28 @@ export const getApplicationBuilder = () => {
       },
 
       enable: (...extensions) => {
-        builder.afterWindowStart((windowDi) => {
-          const rendererExtensionInstances = extensions.map((options) =>
-            getExtensionFakeForRenderer(
-              windowDi,
-              options.id,
-              options.name,
-              options.rendererOptions || {},
-            ),
-          );
+        builder.afterWindowStart(action(({ windowDi }) => {
+          extensions
+            .map(getRendererExtensionFakeWith(windowDi))
+            .forEach(enableExtensionFor(windowDi, rendererExtensionsStateInjectable));
+        }));
 
-          rendererExtensionInstances.forEach(
-            enableExtensionFor(windowDi, rendererExtensionsStateInjectable),
-          );
-        });
-
-        builder.afterApplicationStart((mainDi) => {
-          const mainExtensionInstances = extensions.map((extension) =>
-            getExtensionFakeForMain(mainDi, extension.id, extension.name, extension.mainOptions || {}),
-          );
-
-          runInAction(() => {
-            mainExtensionInstances.forEach(
-              enableExtensionFor(mainDi, mainExtensionsStateInjectable),
-            );
-          });
-        });
+        builder.afterApplicationStart(action(({ mainDi }) => {
+          extensions
+            .map(getMainExtensionFakeWith(mainDi))
+            .forEach(enableExtensionFor(mainDi, mainExtensionsStateInjectable));
+        }));
       },
 
       disable: (...extensions) => {
-        builder.afterWindowStart(windowDi => {
+        builder.afterWindowStart(({ windowDi }) => {
           extensions
-            .map((ext) => ext.id)
-            .forEach(
-              disableExtensionFor(windowDi, rendererExtensionsStateInjectable),
-            );
+            .forEach(disableExtensionFor(windowDi, rendererExtensionsStateInjectable));
         });
 
-        builder.afterApplicationStart(mainDi => {
+        builder.afterApplicationStart(({ mainDi }) => {
           extensions
-            .map((ext) => ext.id)
-            .forEach(
-              disableExtensionFor(mainDi, mainExtensionsStateInjectable),
-            );
+            .forEach(disableExtensionFor(mainDi, mainExtensionsStateInjectable));
         });
       },
     },
@@ -619,8 +621,11 @@ export const getApplicationBuilder = () => {
     allowKubeResource: (resource) => {
       environment.onAllowKubeResource();
 
+      const windowDi = builder.applicationWindow.only.di;
+      const cluster = windowDi.inject(hostedClusterInjectable);
+
       runInAction(() => {
-        allowedResourcesState.add(formatKubeApiResource(resource));
+        cluster?.resourcesToShow.add(formatKubeApiResource(resource));
       });
 
       return builder;
@@ -628,7 +633,7 @@ export const getApplicationBuilder = () => {
 
     beforeApplicationStart(callback) {
       if (applicationHasStarted) {
-        callback(mainDi);
+        callback({ mainDi });
       }
 
       beforeApplicationStartCallbacks.push(callback);
@@ -638,7 +643,7 @@ export const getApplicationBuilder = () => {
 
     afterApplicationStart(callback) {
       if (applicationHasStarted) {
-        callback(mainDi);
+        callback({ mainDi });
       }
 
       afterApplicationStartCallbacks.push(callback);
@@ -650,7 +655,7 @@ export const getApplicationBuilder = () => {
       const alreadyRenderedWindows = builder.applicationWindow.getAll();
 
       alreadyRenderedWindows.forEach((window) => {
-        callback(window.di);
+        callback({ windowDi: window.di });
       });
 
       beforeWindowStartCallbacks.push(callback);
@@ -662,7 +667,7 @@ export const getApplicationBuilder = () => {
       const alreadyRenderedWindows = builder.applicationWindow.getAll();
 
       alreadyRenderedWindows.forEach((window) => {
-        callback(window.di);
+        callback({ windowDi: window.di });
       });
 
       afterWindowStartCallbacks.push(callback);
@@ -671,11 +676,11 @@ export const getApplicationBuilder = () => {
     },
 
     startHidden: async () => {
-      await startApplication({ shouldStartHidden: true });
+      await startApp({ shouldStartHidden: true });
     },
 
     async render() {
-      await startApplication({ shouldStartHidden: false });
+      await startApp({ shouldStartHidden: false });
 
       return builder
         .applicationWindow
@@ -807,49 +812,29 @@ const selectOptionFor = (builder: ApplicationBuilder, menuId: string) => (labelT
   userEvent.click(option);
 };
 
-const enableExtensionFor = (
-  di: DiContainer,
-  stateInjectable: Injectable<ObservableMap<string, any>, any, any>,
-) => {
+function enableExtensionFor(di: DiContainer, stateInjectable: Injectable<ObservableMap<string, any>, any, any>) {
   const extensionState = di.inject(stateInjectable);
 
-  const getExtension = (extension: LensExtension) =>
-    di.inject(extensionInjectable, extension);
+  return (instance: LensExtension) => {
+    const extension = di.inject(extensionInjectable, instance);
 
-  return (extensionInstance: LensExtension) => {
-    const extension = getExtension(extensionInstance);
-
-    runInAction(() => {
-      extension.register();
-      extensionState.set(extensionInstance.id, extensionInstance);
-    });
+    extension.register();
+    extensionState.set(instance.id, instance);
   };
-};
+}
 
-const disableExtensionFor =
-  (
-    di: DiContainer,
-    stateInjectable: Injectable<ObservableMap<string, any>, unknown, void>,
-  ) =>
-    (id: string) => {
-      const getExtension = (extension: LensExtension) =>
-        di.inject(extensionInjectable, extension);
+function disableExtensionFor(di: DiContainer, stateInjectable: Injectable<ObservableMap<string, any>, unknown, void>) {
+  return (extension: FakeExtensionOptions) => {
+    const extensionsState = di.inject(stateInjectable);
+    const instance = extensionsState.get(extension.id);
 
-      const extensionsState = di.inject(stateInjectable);
+    if (!instance) {
+      throw new Error(`Tried to disable extension with ID "${extension.id}", but it wasn't enabled`);
+    }
 
-      const instance = extensionsState.get(id);
+    const injectable = di.inject(extensionInjectable, instance);
 
-      if (!instance) {
-        throw new Error(
-          `Tried to disable extension with ID "${id}", but it wasn't enabled`,
-        );
-      }
-
-      const injectable = getExtension(instance);
-
-      runInAction(() => {
-        injectable.deregister();
-
-        extensionsState.delete(id);
-      });
-    };
+    injectable.deregister();
+    extensionsState.delete(extension.id);
+  };
+}

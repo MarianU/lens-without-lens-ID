@@ -9,7 +9,7 @@ import electronUpdaterIsActiveInjectable from "../../../../main/electron-app/fea
 import publishIsConfiguredInjectable from "../../main/updating-is-enabled/publish-is-configured/publish-is-configured.injectable";
 import processCheckingForUpdatesInjectable from "../../main/process-checking-for-updates.injectable";
 import periodicalCheckForUpdatesInjectable from "./main/periodical-check-for-updates.injectable";
-import { advanceFakeTime, testUsingFakeTime } from "../../../../common/test-utils/use-fake-time";
+import { testUsingFakeTime, advanceFakeTime } from "../../../../test-utils/use-fake-time";
 
 const ENOUGH_TIME = 1000 * 60 * 60 * 2;
 
@@ -22,7 +22,7 @@ describe("periodical checking of updates", () => {
 
     builder = getApplicationBuilder();
 
-    builder.beforeApplicationStart((mainDi) => {
+    builder.beforeApplicationStart(({ mainDi }) => {
       mainDi.unoverride(periodicalCheckForUpdatesInjectable);
       mainDi.permitSideEffects(periodicalCheckForUpdatesInjectable);
 
@@ -39,7 +39,7 @@ describe("periodical checking of updates", () => {
     let rendered: RenderResult;
 
     beforeEach(async () => {
-      builder.beforeApplicationStart((mainDi) => {
+      builder.beforeApplicationStart(({ mainDi }) => {
         mainDi.override(electronUpdaterIsActiveInjectable, () => true);
         mainDi.override(publishIsConfiguredInjectable, () => true);
       });
@@ -74,7 +74,7 @@ describe("periodical checking of updates", () => {
 
   describe("given updater is enabled but no configuration exist, when started", () => {
     beforeEach(async () => {
-      builder.beforeApplicationStart((mainDi) => {
+      builder.beforeApplicationStart(({ mainDi }) => {
         mainDi.override(electronUpdaterIsActiveInjectable, () => true);
         mainDi.override(publishIsConfiguredInjectable, () => false);
       });
@@ -95,7 +95,7 @@ describe("periodical checking of updates", () => {
 
   describe("given updater is not enabled but and configuration exist, when started", () => {
     beforeEach(async () => {
-      builder.beforeApplicationStart((mainDi) => {
+      builder.beforeApplicationStart(({ mainDi }) => {
         mainDi.override(electronUpdaterIsActiveInjectable, () => false);
         mainDi.override(publishIsConfiguredInjectable, () => true);
       });

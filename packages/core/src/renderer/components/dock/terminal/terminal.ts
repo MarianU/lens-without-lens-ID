@@ -10,15 +10,15 @@ import { Terminal as XTerm } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import type { TabId } from "../dock/store";
 import type { TerminalApi } from "../../../api/terminal-api";
-import { disposer } from "../../../utils";
+import { disposer } from "@k8slens/utilities";
 import { once } from "lodash";
 import { clipboard } from "electron";
 import type { Logger } from "../../../../common/logger";
-import type { TerminalConfig } from "../../../../common/user-store/preferences-helpers";
 import assert from "assert";
 import { TerminalChannels } from "../../../../common/terminal/channels";
 import { LinkProvider } from "xterm-link-provider";
 import type { OpenLinkInBrowser } from "../../../../common/utils/open-link-in-browser.injectable";
+import type { TerminalConfig } from "../../../../features/user-preferences/common/preferences-helpers";
 
 export interface TerminalDependencies {
   readonly spawningPool: HTMLElement;

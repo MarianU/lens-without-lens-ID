@@ -2,102 +2,102 @@
  * Copyright (c) OpenLens Authors. All rights reserved.
  * Licensed under MIT License. See LICENSE in root directory for more information.
  */
-import broadcastMessageInjectable from "../../common/ipc/broadcast-message.injectable";
 import type { Cluster } from "../../common/cluster/cluster";
 import { Kubectl } from "../kubectl/kubectl";
 import { getDiForUnitTesting } from "../getDiForUnitTesting";
-import type { CreateCluster } from "../../common/cluster/create-cluster-injection-token";
-import { createClusterInjectionToken } from "../../common/cluster/create-cluster-injection-token";
-import authorizationReviewInjectable from "../../common/cluster/authorization-review.injectable";
-import requestNamespaceListPermissionsForInjectable from "../../common/cluster/request-namespace-list-permissions.injectable";
-import listNamespacesInjectable from "../../common/cluster/list-namespaces.injectable";
-import createContextHandlerInjectable from "../context-handler/create-context-handler.injectable";
-import type { ClusterContextHandler } from "../context-handler/context-handler";
-import { parse } from "url";
 import directoryForUserDataInjectable from "../../common/app-paths/directory-for-user-data/directory-for-user-data.injectable";
 import directoryForTempInjectable from "../../common/app-paths/directory-for-temp/directory-for-temp.injectable";
 import normalizedPlatformInjectable from "../../common/vars/normalized-platform.injectable";
 import kubectlBinaryNameInjectable from "../kubectl/binary-name.injectable";
 import kubectlDownloadingNormalizedArchInjectable from "../kubectl/normalized-arch.injectable";
-import pathExistsSyncInjectable from "../../common/fs/path-exists-sync.injectable";
-import pathExistsInjectable from "../../common/fs/path-exists.injectable";
-import readJsonSyncInjectable from "../../common/fs/read-json-sync.injectable";
+import type { ClusterConnection } from "../cluster/cluster-connection.injectable";
+import clusterConnectionInjectable from "../cluster/cluster-connection.injectable";
+import kubeconfigManagerInjectable from "../kubeconfig-manager/kubeconfig-manager.injectable";
+import type { KubeconfigManager } from "../kubeconfig-manager/kubeconfig-manager";
+import broadcastConnectionUpdateInjectable from "../cluster/broadcast-connection-update.injectable";
+import createCanIInjectable from "../../common/cluster/create-can-i.injectable";
+import createRequestNamespaceListPermissionsInjectable from "../../common/cluster/create-request-namespace-list-permissions.injectable";
+import createListNamespacesInjectable from "../../common/cluster/list-namespaces.injectable";
+import prometheusHandlerInjectable from "../cluster/prometheus-handler/prometheus-handler.injectable";
 import writeJsonSyncInjectable from "../../common/fs/write-json-sync.injectable";
+import addClusterInjectable from "../../features/cluster/storage/common/add.injectable";
 
 describe("create clusters", () => {
   let cluster: Cluster;
-  let createCluster: CreateCluster;
+  let clusterConnection: ClusterConnection;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-
-    const di = getDiForUnitTesting({ doGeneralOverrides: true });
-    const clusterServerUrl = "https://192.168.64.3:8443";
+    const di = getDiForUnitTesting();
+    const writeJsonSync = di.inject(writeJsonSyncInjectable);
 
     di.override(directoryForUserDataInjectable, () => "some-directory-for-user-data");
     di.override(directoryForTempInjectable, () => "some-directory-for-temp");
     di.override(kubectlBinaryNameInjectable, () => "kubectl");
     di.override(kubectlDownloadingNormalizedArchInjectable, () => "amd64");
     di.override(normalizedPlatformInjectable, () => "darwin");
-    di.override(broadcastMessageInjectable, () => async () => {});
-    di.override(authorizationReviewInjectable, () => () => () => Promise.resolve(true));
-    di.override(requestNamespaceListPermissionsForInjectable, () => () => async () => () => true);
-    di.override(listNamespacesInjectable, () => () => () => Promise.resolve([ "default" ]));
-    di.override(createContextHandlerInjectable, () => (cluster) => ({
-      restartServer: jest.fn(),
-      stopServer: jest.fn(),
-      clusterUrl: parse(cluster.apiUrl),
-      getApiTarget: jest.fn(),
+    di.override(broadcastConnectionUpdateInjectable, () => async () => {});
+    di.override(createCanIInjectable, () => () => () => Promise.resolve(true));
+    di.override(createRequestNamespaceListPermissionsInjectable, () => () => async () => () => true);
+    di.override(createListNamespacesInjectable, () => () => () => Promise.resolve([ "default" ]));
+    di.override(prometheusHandlerInjectable, () => ({
       getPrometheusDetails: jest.fn(),
-      resolveAuthProxyCa: jest.fn(),
-      resolveAuthProxyUrl: jest.fn(),
       setupPrometheus: jest.fn(),
-      ensureServer: jest.fn(),
-    } as ClusterContextHandler));
-    di.override(pathExistsInjectable, () => () => { throw new Error("tried call pathExists without override"); });
-    di.override(pathExistsSyncInjectable, () => () => { throw new Error("tried call pathExistsSync without override"); });
-    di.override(readJsonSyncInjectable, () => () => { throw new Error("tried call readJsonSync without override"); });
-    di.override(writeJsonSyncInjectable, () => () => { throw new Error("tried call writeJsonSync without override"); });
+    }));
 
-    createCluster = di.inject(createClusterInjectionToken);
+    writeJsonSync("/minikube-config.yml", {
+      apiVersion: "v1",
+      clusters: [{
+        name: "minikube",
+        cluster: {
+          server: "https://192.168.64.3:8443",
+        },
+      }],
+      "current-context": "minikube",
+      contexts: [{
+        context: {
+          cluster: "minikube",
+          user: "minikube",
+        },
+        name: "minikube",
+      }],
+      users: [{
+        name: "minikube",
+      }],
+      kind: "Config",
+      preferences: {},
+    });
+
+    di.override(kubeconfigManagerInjectable, () => ({
+      ensurePath: async () => "/some-proxy-kubeconfig-file",
+    } as Partial<KubeconfigManager> as KubeconfigManager));
 
     jest.spyOn(Kubectl.prototype, "ensureKubectl").mockReturnValue(Promise.resolve(true));
 
-    cluster = createCluster({
+    const addCluster = di.inject(addClusterInjectable);
+
+    cluster = addCluster({
       id: "foo",
       contextName: "minikube",
-      kubeConfigPath: "minikube-config.yml",
-    }, {
-      clusterServerUrl,
+      kubeConfigPath: "/minikube-config.yml",
     });
-  });
-
-  afterEach(() => {
-    cluster.disconnect();
-  });
-
-  it("should be able to create a cluster from a cluster model and apiURL should be decoded", () => {
-    expect(cluster.apiUrl).toBe("https://192.168.64.3:8443");
+    clusterConnection = di.inject(clusterConnectionInjectable, cluster);
   });
 
   it("reconnect should not throw if contextHandler is missing", () => {
-    expect(() => cluster.reconnect()).not.toThrowError();
+    expect(() => clusterConnection.reconnect()).not.toThrowError();
   });
 
   it("disconnect should not throw if contextHandler is missing", () => {
-    expect(() => cluster.disconnect()).not.toThrowError();
+    expect(() => clusterConnection.disconnect()).not.toThrowError();
   });
 
   it("activating cluster should try to connect to cluster and do a refresh", async () => {
-    jest.spyOn(cluster, "reconnect");
-    jest.spyOn(cluster, "refreshConnectionStatus");
+    jest.spyOn(clusterConnection, "reconnect").mockImplementation(async () => {});
+    jest.spyOn(clusterConnection, "refreshConnectionStatus").mockImplementation(async () => {});
 
-    await cluster.activate();
+    await clusterConnection.activate();
 
-    expect(cluster.reconnect).toBeCalled();
-    expect(cluster.refreshConnectionStatus).toBeCalled();
-
-    cluster.disconnect();
-    jest.resetAllMocks();
+    expect(clusterConnection.reconnect).toBeCalled();
+    expect(clusterConnection.refreshConnectionStatus).toBeCalled();
   });
 });

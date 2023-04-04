@@ -7,7 +7,7 @@ import type { ReadOptions } from "fs-extra";
 import fse from "fs-extra";
 
 /**
- * NOTE: Add corrisponding a corrisponding override of this injecable in `src/test-utils/override-fs-with-fakes.ts`
+ * NOTE: Add corresponding override of this injectable in `src/test-utils/override-fs-with-fakes.ts`
  */
 const fsInjectable = getInjectable({
   id: "fs",
@@ -21,6 +21,8 @@ const fsInjectable = getInjectable({
         rm,
         access,
         stat,
+        unlink,
+        rename,
       },
       ensureDir,
       ensureDirSync,
@@ -56,6 +58,8 @@ const fsInjectable = getInjectable({
       ensureDirSync,
       createReadStream,
       stat,
+      unlink,
+      rename,
     };
   },
   causesSideEffects: true,

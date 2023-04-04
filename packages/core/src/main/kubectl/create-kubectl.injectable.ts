@@ -6,7 +6,6 @@ import { getInjectable } from "@ogre-tools/injectable";
 import type { KubectlDependencies } from "./kubectl";
 import { Kubectl } from "./kubectl";
 import directoryForKubectlBinariesInjectable from "../../common/app-paths/directory-for-kubectl-binaries/directory-for-kubectl-binaries.injectable";
-import userStoreInjectable from "../../common/user-store/user-store.injectable";
 import kubectlDownloadingNormalizedArchInjectable from "./normalized-arch.injectable";
 import normalizedPlatformInjectable from "../../common/vars/normalized-platform.injectable";
 import kubectlBinaryNameInjectable from "./binary-name.injectable";
@@ -18,13 +17,18 @@ import getDirnameOfPathInjectable from "../../common/path/get-dirname.injectable
 import joinPathsInjectable from "../../common/path/join-paths.injectable";
 import getBasenameOfPathInjectable from "../../common/path/get-basename.injectable";
 import loggerInjectable from "../../common/logger.injectable";
+import execFileInjectable from "../../common/fs/exec-file.injectable";
+import unlinkInjectable from "../../common/fs/unlink.injectable";
+import userPreferencesStateInjectable from "../../features/user-preferences/common/state.injectable";
+
+export type CreateKubectl = (version: string) => Kubectl;
 
 const createKubectlInjectable = getInjectable({
   id: "create-kubectl",
 
-  instantiate: (di) => {
+  instantiate: (di): CreateKubectl => {
     const dependencies: KubectlDependencies = {
-      userStore: di.inject(userStoreInjectable),
+      state: di.inject(userPreferencesStateInjectable),
       directoryForKubectlBinaries: di.inject(directoryForKubectlBinariesInjectable),
       normalizedDownloadArch: di.inject(kubectlDownloadingNormalizedArchInjectable),
       normalizedDownloadPlatform: di.inject(normalizedPlatformInjectable),
@@ -37,9 +41,11 @@ const createKubectlInjectable = getInjectable({
       getDirnameOfPath: di.inject(getDirnameOfPathInjectable),
       joinPaths: di.inject(joinPathsInjectable),
       getBasenameOfPath: di.inject(getBasenameOfPathInjectable),
+      execFile: di.inject(execFileInjectable),
+      unlink: di.inject(unlinkInjectable),
     };
 
-    return (clusterVersion: string) => new Kubectl(dependencies, clusterVersion);
+    return (version) => new Kubectl(dependencies, version);
   },
 });
 

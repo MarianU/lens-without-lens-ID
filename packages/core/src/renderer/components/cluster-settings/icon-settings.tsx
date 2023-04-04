@@ -3,106 +3,120 @@
  * Licensed under MIT License. See LICENSE in root directory for more information.
  */
 
-import React from "react";
-import type { Cluster } from "../../../common/cluster/cluster";
-import { autoBind } from "../../utils";
-import { observable } from "mobx";
+import { computedInjectManyInjectable } from "@ogre-tools/injectable-extension-for-mobx";
+import { withInjectables } from "@ogre-tools/injectable-react";
+import type { IComputedValue } from "mobx";
 import { observer } from "mobx-react";
+import React from "react";
 import type { KubernetesCluster } from "../../../common/catalog-entities";
+import type { Cluster } from "../../../common/cluster/cluster";
+import { Avatar } from "../avatar";
 import { FilePicker, OverSizeLimitStyle } from "../file-picker";
 import { MenuActions, MenuItem } from "../menu";
-import { Avatar } from "../avatar";
-
-enum GeneralInputStatus {
-  CLEAN = "clean",
-  ERROR = "error",
-}
+import type { ShowNotification } from "../notifications";
+import showErrorNotificationInjectable from "../notifications/show-error-notification.injectable";
+import { clusterIconSettingsComponentInjectionToken, clusterIconSettingsMenuInjectionToken } from "@k8slens/cluster-settings";
+import type { ClusterIconMenuItem, ClusterIconSettingsComponent } from "@k8slens/cluster-settings";
 
 export interface ClusterIconSettingProps {
   cluster: Cluster;
   entity: KubernetesCluster;
 }
 
-@observer
-export class ClusterIconSetting extends React.Component<ClusterIconSettingProps> {
-  @observable status = GeneralInputStatus.CLEAN;
-  @observable errorText?: string;
+interface Dependencies {
+  menuItems: IComputedValue<ClusterIconMenuItem[]>;
+  settingComponents: IComputedValue<ClusterIconSettingsComponent[]>;
+  showErrorNotification: ShowNotification;
+}
 
-  constructor(props: ClusterIconSettingProps) {
-    super(props);
-    autoBind(this);
-  }
 
-  private element = React.createRef<HTMLDivElement>();
+const NonInjectedClusterIconSetting = observer((props: ClusterIconSettingProps & Dependencies) => {
+  const element = React.createRef<HTMLDivElement>();
+  const { cluster, entity } = props;
+  const menuId = `menu-actions-for-cluster-icon-settings-for-${entity.getId()}`;
 
-  async onIconPick([file]: File[]) {
+  const onIconPick = async ([file]: File[]) => {
     if (!file) {
       return;
     }
-
-    const { cluster } = this.props;
 
     try {
       const buf = Buffer.from(await file.arrayBuffer());
 
       cluster.preferences.icon = `data:${file.type};base64,${buf.toString("base64")}`;
     } catch (e) {
-      this.errorText = String(e);
-      this.status = GeneralInputStatus.ERROR;
+      props.showErrorNotification(String(e));
     }
-  }
+  };
 
-  clearIcon() {
-    /**
-     * NOTE: this needs to be `null` rather than `undefined` so that we can
-     * tell the difference between it not being there and being cleared.
-     */
-    this.props.cluster.preferences.icon = null;
-  }
-
-  onUploadClick() {
-    this.element
+  const onUploadClick = () => {
+    element
       .current
       ?.querySelector<HTMLInputElement>("input[type=file]")
       ?.click();
-  }
+  };
 
-  render() {
-    const { entity } = this.props;
-
-    return (
-      <div ref={this.element}>
-        <div className="file-loader flex flex-row items-center">
-          <div className="mr-5">
-            <FilePicker
-              accept="image/*"
-              label={(
-                <Avatar
-                  colorHash={`${entity.getName()}-${entity.metadata.source}`}
-                  title={entity.getName()}
-                  src={entity.spec.icon?.src}
-                  size={53}
-                />
-              )}
-              onOverSizeLimit={OverSizeLimitStyle.FILTER}
-              handler={this.onIconPick}
-            />
-          </div>
-          <MenuActions
-            id={`menu-actions-for-cluster-icon-settings-for-${entity.getId()}`}
-            toolbar={false}
-            autoCloseOnSelect={true}
-            triggerIcon={{ material: "more_horiz" }}
-          >
-            <MenuItem onClick={this.onUploadClick}>
-              Upload Icon
-            </MenuItem>
-            <MenuItem onClick={() => this.clearIcon()} disabled={!this.props.cluster.preferences.icon}>
-              Clear
-            </MenuItem>
-          </MenuActions>
+  return (
+    <div ref={element}>
+      <div className="file-loader flex flex-row items-center">
+        <div className="mr-5">
+          <FilePicker
+            accept="image/*"
+            label={(
+              <Avatar
+                colorHash={`${entity.getName()}-${entity.metadata.source}`}
+                title={entity.getName()}
+                src={entity.spec.icon?.src}
+                size={53}
+                background={entity.spec.icon?.background}
+              />
+            )}
+            onOverSizeLimit={OverSizeLimitStyle.FILTER}
+            handler={onIconPick}
+          />
         </div>
+        <MenuActions
+          id={menuId}
+          data-testid={menuId}
+          toolbar={false}
+          autoCloseOnSelect={true}
+          triggerIcon={{ material: "more_horiz" }}
+        >
+          <MenuItem onClick={onUploadClick}>
+            Upload Icon
+          </MenuItem>
+          {props.menuItems.get().map(item => (
+            <MenuItem
+              onClick={() => item.onClick(cluster.preferences)}
+              key={item.id}
+              disabled={item.disabled?.(cluster.preferences)}>
+              {item.title}
+            </MenuItem>
+          ),
+          )}
+        </MenuActions>
       </div>
-    );
-  }
-}
+      {props.settingComponents.get().map(item => {
+        return (
+          <item.Component
+            key={item.id}
+            preferences={cluster.preferences}
+          />
+        );
+      })}
+    </div>
+  );
+});
+
+export const ClusterIconSetting = withInjectables<Dependencies, ClusterIconSettingProps>(NonInjectedClusterIconSetting, {
+  getProps: (di, props) => {
+    const computedInjectMany = di.inject(computedInjectManyInjectable);
+   
+    return {
+      ...props,
+      menuItems: computedInjectMany(clusterIconSettingsMenuInjectionToken),
+      settingComponents: computedInjectMany(clusterIconSettingsComponentInjectionToken),
+      showErrorNotification: di.inject(showErrorNotificationInjectable),
+    };
+  },
+});

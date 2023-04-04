@@ -1,11 +1,8 @@
 {
   "$schema": "node_modules/lerna/schemas/lerna-schema.json",
-  "useWorkspaces": false,
-  "packages": [
-    "packages/*"
-  ],
-  "version": "6.4.0-beta.13",
-  "npmClient": "yarn",
+  "useWorkspaces": true,
+  "version": "independent",
+  "npmClient": "npm",
   "npmClientArgs": [
     "--network-timeout=100000"
   ]

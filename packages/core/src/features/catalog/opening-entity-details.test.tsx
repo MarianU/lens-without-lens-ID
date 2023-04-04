@@ -6,12 +6,13 @@
 import type { DiContainer } from "@ogre-tools/injectable";
 import type { RenderResult } from "@testing-library/react";
 import { KubernetesCluster, WebLink } from "../../common/catalog-entities";
-import getClusterByIdInjectable from "../../common/cluster-store/get-by-id.injectable";
-import type { Cluster } from "../../common/cluster/cluster";
 import navigateToCatalogInjectable from "../../common/front-end-routing/routes/catalog/navigate-to-catalog.injectable";
+import { advanceFakeTime } from "../../test-utils/use-fake-time";
 import catalogEntityRegistryInjectable from "../../renderer/api/catalog/entity/registry.injectable";
-import createClusterInjectable from "../../renderer/cluster/create-cluster.injectable";
+import showEntityDetailsInjectable from "../../renderer/components/+catalog/entity-details/show.injectable";
 import { type ApplicationBuilder, getApplicationBuilder } from "../../renderer/components/test-utils/get-application-builder";
+import writeJsonFileInjectable from "../../common/fs/write-json-file.injectable";
+import addClusterInjectable from "../cluster/storage/common/add.injectable";
 
 describe("opening catalog entity details panel", () => {
   let builder: ApplicationBuilder;
@@ -20,14 +21,11 @@ describe("opening catalog entity details panel", () => {
   let clusterEntity: KubernetesCluster;
   let localClusterEntity: KubernetesCluster;
   let otherEntity: WebLink;
-  let cluster: Cluster;
 
   beforeEach(async () => {
     builder = getApplicationBuilder();
 
-    builder.afterWindowStart((windowDi) => {
-      const createCluster = windowDi.inject(createClusterInjectable);
-
+    builder.afterWindowStart(async ({ windowDi }) => {
       clusterEntity = new KubernetesCluster({
         metadata: {
           labels: {},
@@ -70,21 +68,33 @@ describe("opening catalog entity details panel", () => {
           phase: "available",
         },
       });
-      cluster = createCluster({
-        contextName: clusterEntity.spec.kubeconfigContext,
-        id: clusterEntity.getId(),
-        kubeConfigPath: clusterEntity.spec.kubeconfigPath,
-      }, {
-        clusterServerUrl: "https://localhost:9999",
+
+      const writeJsonFile = windowDi.inject(writeJsonFileInjectable);
+      const addCluster = windowDi.inject(addClusterInjectable);
+
+      await writeJsonFile(clusterEntity.spec.kubeconfigPath, {
+        contexts: [{
+          name: clusterEntity.spec.kubeconfigContext,
+          context: {
+            cluster: "some-cluster",
+            user: "some-user",
+          },
+        }],
+        clusters: [{
+          name: "some-cluster",
+          cluster: {
+            server: "https://localhost:9999",
+          },
+        }],
+        users: [{
+          name: "some-user",
+        }],
       });
 
-      // TODO: remove once ClusterStore can be used without overriding it
-      windowDi.override(getClusterByIdInjectable, () => (clusterId) => {
-        if (clusterId === cluster.id) {
-          return cluster;
-        }
-
-        return undefined;
+      addCluster({
+        id: clusterEntity.getId(),
+        kubeConfigPath: clusterEntity.spec.kubeconfigPath,
+        contextName: clusterEntity.spec.kubeconfigContext,
       });
 
       // TODO: replace with proper entity source once syncing entities between main and windows is injectable
@@ -127,6 +137,7 @@ describe("opening catalog entity details panel", () => {
     describe("when opening the menu 'some-kubernetes-cluster'", () => {
       beforeEach(() => {
         rendered.getByTestId("icon-for-menu-actions-for-catalog-for-some-entity-id").click();
+        advanceFakeTime(1000);
       });
 
       it("renders", () => {
@@ -152,6 +163,7 @@ describe("opening catalog entity details panel", () => {
 
         describe("when the panel opens", () => {
           beforeEach(async () => {
+            advanceFakeTime(1000);
             await rendered.findAllByTestId("catalog-entity-details-drawer");
           });
 
@@ -218,6 +230,23 @@ describe("opening catalog entity details panel", () => {
           });
         });
       });
+    });
+  });
+
+  describe("when not navigated to the catalog and showEntityDetails is called from someplace", () => {
+    beforeEach(async () => {
+      const showEntityDetails = windowDi.inject(showEntityDetailsInjectable);
+
+      showEntityDetails("some-weblink-id");
+      advanceFakeTime(1000);
+    });
+
+    it("renders", async () => {
+      expect(rendered.baseElement).toMatchSnapshot();
+    });
+
+    it("opens the detail panel for the correct item", () => {
+      expect(rendered.queryByTestId("catalog-entity-details-content-for-some-weblink-id")).toBeInTheDocument();
     });
   });
 });

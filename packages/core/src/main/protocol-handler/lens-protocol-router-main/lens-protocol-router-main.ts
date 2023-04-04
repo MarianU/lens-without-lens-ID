@@ -9,7 +9,7 @@ import type { LensExtension } from "../../../extensions/lens-extension";
 import { observable, when, makeObservable } from "mobx";
 import type { LensProtocolRouterDependencies, RouteAttempt } from "../../../common/protocol-handler";
 import { ProtocolHandlerInvalid } from "../../../common/protocol-handler";
-import { disposer, noop } from "../../../common/utils";
+import { disposer, noop } from "@k8slens/utilities";
 import type { BroadcastMessage } from "../../../common/ipc/broadcast-message.injectable";
 
 export interface FallbackHandler {
@@ -119,7 +119,13 @@ export class LensProtocolRouterMain extends proto.LensProtocolRouter {
     const rawUrl = url.toString(); // for sending to renderer
     const attempt = super._routeToInternal(url);
 
-    this.disposers.push(when(() => this.rendererLoaded, () => this.dependencies.broadcastMessage(proto.ProtocolHandlerInternal, rawUrl, attempt)));
+    const sendRoutingToRenderer = () => this.dependencies.broadcastMessage(proto.ProtocolHandlerInternal, rawUrl, attempt);
+
+    if (this.rendererLoaded) {
+      sendRoutingToRenderer();
+    } else {
+      this.disposers.push(when(() => this.rendererLoaded, sendRoutingToRenderer));
+    }
 
     return attempt;
   }
@@ -136,7 +142,13 @@ export class LensProtocolRouterMain extends proto.LensProtocolRouter {
      */
     const attempt = await super._routeToExtension(new URLParse(url.toString(), true));
 
-    this.disposers.push(when(() => this.rendererLoaded, () => this.dependencies.broadcastMessage(proto.ProtocolHandlerExtension, rawUrl, attempt)));
+    const sendRoutingToRenderer = () => this.dependencies.broadcastMessage(proto.ProtocolHandlerExtension, rawUrl, attempt);
+
+    if (this.rendererLoaded) {
+      sendRoutingToRenderer();
+    } else {
+      this.disposers.push(when(() => this.rendererLoaded, sendRoutingToRenderer));
+    }
 
     return attempt;
   }

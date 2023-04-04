@@ -13,7 +13,7 @@ import { frontEndRouteInjectionToken } from "../../common/front-end-routing/fron
 import type { ApplicationBuilder } from "../../renderer/components/test-utils/get-application-builder";
 import { getApplicationBuilder } from "../../renderer/components/test-utils/get-application-builder";
 import { navigateToRouteInjectionToken } from "../../common/front-end-routing/navigate-to-route-injection-token";
-import { shouldShowResourceInjectionToken } from "../../common/cluster-store/allowed-resources-injection-token";
+import { shouldShowResourceInjectionToken } from "./showing-kube-resources/common/allowed-resources-injection-token";
 
 describe("cluster - visibility of sidebar items", () => {
   let builder: ApplicationBuilder;
@@ -24,7 +24,7 @@ describe("cluster - visibility of sidebar items", () => {
 
     builder.setEnvironmentToClusterFrame();
 
-    builder.beforeWindowStart((windowDi) => {
+    builder.beforeWindowStart(({ windowDi }) => {
       runInAction(() => {
         windowDi.register(testRouteInjectable);
         windowDi.register(testRouteComponentInjectable);

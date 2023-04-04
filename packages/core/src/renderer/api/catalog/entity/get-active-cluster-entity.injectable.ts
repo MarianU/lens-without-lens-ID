@@ -3,20 +3,26 @@
  * Licensed under MIT License. See LICENSE in root directory for more information.
  */
 import { getInjectable } from "@ogre-tools/injectable";
-import clusterStoreInjectable from "../../../../common/cluster-store/cluster-store.injectable";
-import type { Cluster } from "../../../../common/cluster/cluster";
+import { computed } from "mobx";
+import getClusterByIdInjectable from "../../../../features/cluster/storage/common/get-by-id.injectable";
 import catalogEntityRegistryInjectable from "./registry.injectable";
 
-export type GetActiveClusterEntity = () => Cluster | undefined;
-
-const getActiveClusterEntityInjectable = getInjectable({
-  id: "get-active-cluster-entity",
-  instantiate: (di): GetActiveClusterEntity => {
-    const store = di.inject(clusterStoreInjectable);
+const activeEntityInternalClusterInjectable = getInjectable({
+  id: "active-entity-internal-cluster",
+  instantiate: (di) => {
+    const getClusterById = di.inject(getClusterByIdInjectable);
     const entityRegistry = di.inject(catalogEntityRegistryInjectable);
 
-    return () => store.getById(entityRegistry.activeEntity?.getId());
+    return computed(() => {
+      const entityId = entityRegistry.activeEntity?.getId();
+
+      if (entityId) {
+        return getClusterById(entityId);
+      }
+
+      return undefined;
+    });
   },
 });
 
-export default getActiveClusterEntityInjectable;
+export default activeEntityInternalClusterInjectable;

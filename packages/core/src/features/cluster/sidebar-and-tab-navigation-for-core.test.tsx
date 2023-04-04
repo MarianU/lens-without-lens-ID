@@ -20,9 +20,9 @@ import writeJsonFileInjectable from "../../common/fs/write-json-file.injectable"
 import pathExistsInjectable from "../../common/fs/path-exists.injectable";
 import readJsonFileInjectable from "../../common/fs/read-json-file.injectable";
 import { navigateToRouteInjectionToken } from "../../common/front-end-routing/navigate-to-route-injection-token";
-import { advanceFakeTime, testUsingFakeTime } from "../../common/test-utils/use-fake-time";
 import storageSaveDelayInjectable from "../../renderer/utils/create-storage/storage-save-delay.injectable";
-import { flushPromises } from "../../common/test-utils/flush-promises";
+import { flushPromises } from "@k8slens/test-utils";
+import { testUsingFakeTime, advanceFakeTime } from "../../test-utils/use-fake-time";
 
 describe("cluster - sidebar and tab navigation for core", () => {
   let builder: ApplicationBuilder;
@@ -35,14 +35,14 @@ describe("cluster - sidebar and tab navigation for core", () => {
 
     builder.setEnvironmentToClusterFrame();
 
-    builder.beforeWindowStart((windowDi) => {
+    builder.beforeWindowStart(({ windowDi }) => {
       windowDi.override(storageSaveDelayInjectable, () => 250);
     });
   });
 
   describe("given core registrations", () => {
     beforeEach(() => {
-      builder.beforeWindowStart((windowDi) => {
+      builder.beforeWindowStart(({ windowDi }) => {
         runInAction(() => {
           windowDi.register(testRouteInjectable);
           windowDi.register(testRouteComponentInjectable);
@@ -86,7 +86,7 @@ describe("cluster - sidebar and tab navigation for core", () => {
 
     describe("given state for expanded sidebar items already exists, when rendered", () => {
       beforeEach(async () => {
-        builder.beforeWindowStart(async (windowDi) => {
+        builder.beforeWindowStart(async ({ windowDi }) => {
           const writeJsonFile = windowDi.inject(writeJsonFileInjectable);
 
           await writeJsonFile(
@@ -122,7 +122,7 @@ describe("cluster - sidebar and tab navigation for core", () => {
 
     describe("given state for expanded unknown sidebar items already exists, when rendered", () => {
       beforeEach(async () => {
-        builder.beforeWindowStart(async (windowDi) => {
+        builder.beforeWindowStart(async ({ windowDi }) => {
           const writeJsonFileFake = windowDi.inject(writeJsonFileInjectable);
 
           await writeJsonFileFake(
@@ -152,7 +152,7 @@ describe("cluster - sidebar and tab navigation for core", () => {
 
     describe("given empty state for expanded sidebar items already exists, when rendered", () => {
       beforeEach(async () => {
-        builder.beforeWindowStart(async (windowDi) => {
+        builder.beforeWindowStart(async ({ windowDi }) => {
           const writeJsonFileFake = windowDi.inject(writeJsonFileInjectable);
 
           await writeJsonFileFake(

@@ -15,7 +15,6 @@ import type { RequestHelmReleaseConfiguration } from "../../common/k8s-api/endpo
 import requestHelmReleaseConfigurationInjectable from "../../common/k8s-api/endpoints/helm-releases.api/request-configuration.injectable";
 import type { RequestHelmReleaseUpdate } from "../../common/k8s-api/endpoints/helm-releases.api/request-update.injectable";
 import requestHelmReleaseUpdateInjectable from "../../common/k8s-api/endpoints/helm-releases.api/request-update.injectable";
-import { testUsingFakeTime } from "../../common/test-utils/use-fake-time";
 import type { RequestDetailedHelmRelease } from "../../renderer/components/+helm-releases/release-details/release-details-model/request-detailed-helm-release.injectable";
 import requestDetailedHelmReleaseInjectable from "../../renderer/components/+helm-releases/release-details/release-details-model/request-detailed-helm-release.injectable";
 import showSuccessNotificationInjectable from "../../renderer/components/notifications/show-success-notification.injectable";
@@ -30,6 +29,7 @@ import requestHelmChartVersionsInjectable from "../../common/k8s-api/endpoints/h
 import requestHelmChartReadmeInjectable from "../../common/k8s-api/endpoints/helm-charts.api/request-readme.injectable";
 import requestHelmChartValuesInjectable from "../../common/k8s-api/endpoints/helm-charts.api/request-values.injectable";
 import { HelmChart } from "../../common/k8s-api/endpoints/helm-charts.api";
+import { testUsingFakeTime } from "../../test-utils/use-fake-time";
 
 describe("showing details for helm release", () => {
   let builder: ApplicationBuilder;
@@ -63,7 +63,7 @@ describe("showing details for helm release", () => {
     showSuccessNotificationMock = jest.fn();
     showCheckedErrorNotificationMock = jest.fn();
 
-    builder.beforeWindowStart((windowDi) => {
+    builder.beforeWindowStart(({ windowDi }) => {
       windowDi.override(getRandomUpgradeChartTabIdInjectable, () => () => "some-tab-id");
       windowDi.override(showSuccessNotificationInjectable, () => showSuccessNotificationMock);
       windowDi.override(showCheckedErrorInjectable, () => showCheckedErrorNotificationMock);
@@ -78,9 +78,12 @@ describe("showing details for helm release", () => {
     });
 
     builder.namespaces.add("some-namespace");
-    builder.namespaces.select("some-namespace");
     builder.namespaces.add("some-namespace");
-    builder.namespaces.select("some-other-namespace");
+
+    builder.afterWindowStart(() => {
+      builder.namespaces.select("some-namespace");
+      builder.namespaces.select("some-other-namespace");
+    });
   });
 
   describe("given application is started", () => {
@@ -106,10 +109,9 @@ describe("showing details for helm release", () => {
       });
 
       it("calls for releases for each selected namespace", () => {
-        expect(requestHelmReleasesMock.mock.calls).toEqual([
-          ["some-namespace"],
-          ["some-other-namespace"],
-        ]);
+        expect(requestHelmReleasesMock).toBeCalledTimes(2);
+        expect(requestHelmReleasesMock).toBeCalledWith("some-namespace");
+        expect(requestHelmReleasesMock).toBeCalledWith("some-other-namespace");
       });
 
       it("shows spinner", () => {
@@ -224,14 +226,95 @@ describe("showing details for helm release", () => {
 
             it("closes details for first release", () => {
               expect(
-                rendered.queryByTestId("helm-release-details-for-some-namespace/some-name"),
+                rendered.queryByTestId(
+                  "helm-release-details-for-some-namespace/some-name",
+                ),
               ).not.toBeInTheDocument();
             });
 
             it("opens details for second release", () => {
               expect(
-                rendered.getByTestId("helm-release-details-for-some-other-namespace/some-other-name"),
+                rendered.getByTestId(
+                  "helm-release-details-for-some-other-namespace/some-other-name",
+                ),
               ).toBeInTheDocument();
+            });
+
+            it("shows spinner", () => {
+              expect(
+                rendered.getByTestId("helm-release-detail-content-spinner"),
+              ).toBeInTheDocument();
+            });
+
+            describe("when details for second release resolve", () => {
+              beforeEach(async () => {
+                await requestDetailedHelmReleaseMock.resolve({
+                  callWasSuccessful: true,
+                  response: {
+                    release: {
+                      appVersion: "some-app-version",
+                      chart: "some-chart-1.0.0",
+                      status: "some-status",
+                      updated: "some-updated",
+                      revision: "some-revision",
+                      name: "some-other-name",
+                      namespace: "some-other-namespace",
+                    },
+
+                    details: {
+                      name: "some-other-name",
+                      namespace: "some-other-namespace",
+                      version: "some-version",
+                      config: "some-config",
+                      manifest: "some-manifest",
+
+                      info: {
+                        deleted: "some-deleted",
+                        description: "some-description",
+                        first_deployed: "some-first-deployed",
+                        last_deployed: "some-last-deployed",
+                        notes: "some-notes",
+                        status: "some-status",
+                      },
+
+                      resources: [
+                        {
+                          kind: "some-kind",
+                          apiVersion: "some-api-version",
+                          metadata: {
+                            uid: "some-uid",
+                            name: "some-resource",
+                            namespace: "some-namespace",
+                            creationTimestamp: "2015-10-22T07:28:00Z",
+                          },
+                        },
+                      ],
+                    },
+                  },
+                });
+              });
+
+              it("renders", () => {
+                expect(rendered.baseElement).toMatchSnapshot();
+              });
+
+              it("calls for release configuration", () => {
+                expect(
+                  requestHelmReleaseConfigurationMock,
+                ).toHaveBeenCalledWith("some-other-name", "some-other-namespace", true);
+              });
+
+              describe("when configuration resolves", () => {
+                beforeEach(async () => {
+                  await requestHelmReleaseConfigurationMock.resolve(
+                    "some-other-configuration",
+                  );
+                });
+
+                it("renders", () => {
+                  expect(rendered.baseElement).toMatchSnapshot();
+                });
+              });
             });
           });
 
@@ -410,7 +493,7 @@ describe("showing details for helm release", () => {
               describe("when changing the configuration", () => {
                 beforeEach(() => {
                   const configuration = rendered.getByTestId(
-                    "monaco-editor-for-helm-release-configuration",
+                    "monaco-editor-for-helm-release-configuration-some-namespace/some-name",
                   );
 
                   fireEvent.change(configuration, {
@@ -424,7 +507,7 @@ describe("showing details for helm release", () => {
 
                 it("has the configuration", () => {
                   const input = rendered.getByTestId(
-                    "monaco-editor-for-helm-release-configuration",
+                    "monaco-editor-for-helm-release-configuration-some-namespace/some-name",
                   );
 
                   expect(input).toHaveValue("some-new-configuration");
@@ -466,7 +549,7 @@ describe("showing details for helm release", () => {
 
                     it("overrides the user inputted configuration with new configuration", () => {
                       const input = rendered.getByTestId(
-                        "monaco-editor-for-helm-release-configuration",
+                        "monaco-editor-for-helm-release-configuration-some-namespace/some-name",
                       );
 
                       expect(input).toHaveValue("some-other-configuration");

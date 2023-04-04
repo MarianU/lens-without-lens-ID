@@ -2,15 +2,15 @@
  * Copyright (c) OpenLens Authors. All rights reserved.
  * Licensed under MIT License. See LICENSE in root directory for more information.
  */
-import type { SelfSignedCert } from "selfsigned";
 import { lensProxyCertificateChannel } from "../../common/certificate/lens-proxy-certificate-channel";
-import { getRequestChannelListenerInjectable } from "../utils/channel/channel-listeners/listener-tokens";
+import { getRequestChannelListenerInjectable } from "@k8slens/messaging";
 import lensProxyCertificateInjectable from "../../common/certificate/lens-proxy-certificate.injectable";
 
 const lensProxyCertificateRequestHandlerInjectable = getRequestChannelListenerInjectable({
+  id: "lens-proxy-certificate-request-handler-listener",
   channel: lensProxyCertificateChannel,
-  handler: (di) => {
-    const lensProxyCertificate = di.inject(lensProxyCertificateInjectable).get() as SelfSignedCert;
+  getHandler: (di) => {
+    const lensProxyCertificate = di.inject(lensProxyCertificateInjectable).get();
 
     return () => ({
       cert: lensProxyCertificate.cert,

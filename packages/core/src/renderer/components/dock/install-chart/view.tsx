@@ -10,7 +10,7 @@ import { observer } from "mobx-react";
 import { InfoPanel } from "../info-panel";
 import { Badge } from "../../badge";
 import { NamespaceSelect } from "../../+namespaces/namespace-select";
-import { prevDefault } from "../../../utils";
+import { prevDefault } from "@k8slens/utilities";
 import { Icon } from "../../icon";
 import { Button } from "../../button";
 import { LogsDialog } from "../../dialog/logs-dialog";
@@ -93,14 +93,12 @@ const NonInjectedInstallChart = observer(
                 options={version.options.get()}
                 onChange={(changed) => version.onChange(changed?.value)}
                 menuPlacement="top"
-                themeName="outlined"
                 id={`install-chart-version-select-for-${tabId}`}
               />
               <span>Namespace</span>
               <NamespaceSelect
                 showIcons={false}
                 menuPlacement="top"
-                themeName="outlined"
                 value={namespace.value.get()}
                 onChange={namespace.onChange}
                 id={`install-chart-namespace-select-for-${tabId}`}

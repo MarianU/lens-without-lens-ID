@@ -5,23 +5,22 @@
 import { getInjectable } from "@ogre-tools/injectable";
 import { isEqual } from "lodash";
 import { autorun } from "mobx";
-import clusterStoreInjectable from "../../../../common/cluster-store/cluster-store.injectable";
 import type { ClusterId, ClusterState } from "../../../../common/cluster-types";
-import { beforeApplicationIsLoadingInjectionToken } from "../../../../main/start-main-application/runnable-tokens/before-application-is-loading-injection-token";
-import initClusterStoreInjectable from "../../store/main/init.injectable";
+import { beforeApplicationIsLoadingInjectionToken } from "@k8slens/application";
+import initClusterStoreInjectable from "../../storage/main/init.injectable";
 import emitClusterStateUpdateInjectable from "./emit-update.injectable";
+import clustersInjectable from "../../storage/common/clusters.injectable";
 
 const setupClusterStateBroadcastingInjectable = getInjectable({
   id: "setup-cluster-state-broadcasting",
   instantiate: (di) => ({
-    id: "setup-cluster-state-broadcasting",
     run: () => {
       const emitClusterStateUpdate = di.inject(emitClusterStateUpdateInjectable);
-      const clusterStore = di.inject(clusterStoreInjectable);
+      const clusters = di.inject(clustersInjectable);
       const prevStates = new Map<ClusterId, ClusterState>();
 
       autorun(() => {
-        for (const cluster of clusterStore.clusters.values()) {
+        for (const cluster of clusters.get()) {
           const prevState = prevStates.get(cluster.id);
           const curState = cluster.getState();
 
@@ -36,7 +35,7 @@ const setupClusterStateBroadcastingInjectable = getInjectable({
         }
       });
     },
-    runAfter: di.inject(initClusterStoreInjectable),
+    runAfter: initClusterStoreInjectable,
   }),
   injectionToken: beforeApplicationIsLoadingInjectionToken,
 });

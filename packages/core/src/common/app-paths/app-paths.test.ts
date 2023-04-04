@@ -21,7 +21,6 @@ describe("app-paths", () => {
     const defaultAppPathsStub: AppPaths = {
       currentApp: "/some-current-app",
       appData: "/some-app-data",
-      cache: "/some-cache",
       crashDumps: "/some-crash-dumps",
       desktop: "/some-desktop",
       documents: "/some-documents",
@@ -36,9 +35,10 @@ describe("app-paths", () => {
       temp: "/some-temp",
       videos: "/some-videos",
       userData: "/some-irrelevant-user-data",
+      sessionData: "/some-irrelevant-user-data", //  By default this points to userData
     };
 
-    builder.beforeApplicationStart((mainDi) => {
+    builder.beforeApplicationStart(({ mainDi }) => {
       mainDi.override(
         getElectronAppPathInjectable,
         () =>
@@ -73,7 +73,6 @@ describe("app-paths", () => {
       expect(actual).toEqual({
         currentApp: "/some-current-app",
         appData: "/some-app-data",
-        cache: "/some-cache",
         crashDumps: "/some-crash-dumps",
         desktop: "/some-desktop",
         documents: "/some-documents",
@@ -88,6 +87,7 @@ describe("app-paths", () => {
         temp: "/some-temp",
         videos: "/some-videos",
         userData: "/some-app-data/some-product-name",
+        sessionData: "/some-app-data/some-product-name",
       });
     });
 
@@ -97,7 +97,6 @@ describe("app-paths", () => {
       expect(actual).toEqual({
         currentApp: "/some-current-app",
         appData: "/some-app-data",
-        cache: "/some-cache",
         crashDumps: "/some-crash-dumps",
         desktop: "/some-desktop",
         documents: "/some-documents",
@@ -112,6 +111,7 @@ describe("app-paths", () => {
         temp: "/some-temp",
         videos: "/some-videos",
         userData: "/some-app-data/some-product-name",
+        sessionData: "/some-app-data/some-product-name",
       });
     });
   });
@@ -120,7 +120,7 @@ describe("app-paths", () => {
     let windowDi: DiContainer;
 
     beforeEach(async () => {
-      builder.beforeApplicationStart((mainDi) => {
+      builder.beforeApplicationStart(({ mainDi }) => {
         mainDi.override(
           directoryForIntegrationTestingInjectable,
           () => "/some-integration-testing-app-data",

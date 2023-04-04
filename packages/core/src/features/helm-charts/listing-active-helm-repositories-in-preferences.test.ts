@@ -16,7 +16,7 @@ import loggerInjectable from "../../common/logger.injectable";
 import type { Logger } from "../../common/logger";
 import requestPublicHelmRepositoriesInjectable from "./child-features/preferences/renderer/adding-of-public-helm-repository/public-helm-repositories/request-public-helm-repositories.injectable";
 import showErrorNotificationInjectable from "../../renderer/components/notifications/show-error-notification.injectable";
-import { noop } from "../../common/utils";
+import { noop } from "@k8slens/utilities";
 
 describe("listing active helm repositories in preferences", () => {
   let builder: ApplicationBuilder;
@@ -41,14 +41,14 @@ describe("listing active helm repositories in preferences", () => {
       warn: noop,
     };
 
-    builder.beforeApplicationStart((mainDi) => {
+    builder.beforeApplicationStart(({ mainDi }) => {
       mainDi.override(readYamlFileInjectable, () => readYamlFileMock);
       mainDi.override(execFileInjectable, () => execFileMock);
       mainDi.override(helmBinaryPathInjectable, () => "some-helm-binary-path");
       mainDi.override(loggerInjectable, () => loggerStub);
     });
 
-    builder.beforeWindowStart((windowDi) => {
+    builder.beforeWindowStart(({ windowDi }) => {
       windowDi.override(showErrorNotificationInjectable, () => showErrorNotificationMock);
       windowDi.override(requestPublicHelmRepositoriesInjectable, () => async () => []);
     });

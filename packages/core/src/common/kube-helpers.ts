@@ -7,7 +7,7 @@ import { KubeConfig } from "@kubernetes/client-node";
 import yaml from "js-yaml";
 import type { Cluster, Context, User } from "@kubernetes/client-node/dist/config_types";
 import { newClusters, newContexts, newUsers } from "@kubernetes/client-node/dist/config_types";
-import { isDefined } from "./utils";
+import { isDefined } from "@k8slens/utilities";
 import Joi from "joi";
 import type { PartialDeep } from "type-fest";
 
@@ -128,6 +128,16 @@ export function loadConfigFromString(content: string): ConfigResult {
     config: loadFromOptions(options),
     error,
   };
+}
+
+export function loadValidatedConfig(content: string, contextName: string): ValidateKubeConfigResult {
+  const { options, error } = loadToOptions(content);
+
+  if (error) {
+    return { error };
+  }
+
+  return validateKubeConfig(loadFromOptions(options), contextName);
 }
 
 export interface SplitConfigEntry {

@@ -5,52 +5,52 @@
 
 import styles from "./catalog.module.scss";
 
-import React from "react";
-import { disposeOnUnmount, observer } from "mobx-react";
-import { ItemListLayout } from "../item-object-list";
 import type { IComputedValue } from "mobx";
 import { action, computed, makeObservable, observable, reaction, runInAction, when } from "mobx";
-import type { CatalogEntityStore } from "./catalog-entity-store/catalog-entity.store";
-import { MenuItem, MenuActions } from "../menu";
-import type { CatalogEntityContextMenu } from "../../api/catalog-entity";
+import { disposeOnUnmount, observer } from "mobx-react";
+import React from "react";
 import type { CatalogCategory, CatalogCategoryRegistry, CatalogEntity } from "../../../common/catalog";
-import { CatalogAddButton } from "./catalog-add-button";
-import type { ShowNotification } from "../notifications";
+import type { CatalogEntityContextMenu } from "../../api/catalog-entity";
+import { ItemListLayout } from "../item-object-list";
 import { MainLayout } from "../layout/main-layout";
-import type { StorageLayer } from "../../utils";
-import { prevDefault } from "../../utils";
-import { CatalogEntityDetails } from "./entity-details/view";
-import { CatalogMenu } from "./catalog-menu";
+import { MenuActions, MenuItem } from "../menu";
+import type { ShowNotification } from "../notifications";
 import { RenderDelay } from "../render-delay/render-delay";
-import { Icon } from "../icon";
+import { CatalogAddButton } from "./catalog-add-button";
+import type { CatalogEntityStore } from "./catalog-entity-store.injectable";
+import { CatalogMenu } from "./catalog-menu";
 import { HotbarToggleMenuItem } from "./hotbar-toggle-menu-item";
-import { Avatar } from "../avatar";
 import { withInjectables } from "@ogre-tools/injectable-react";
-import catalogPreviousActiveTabStorageInjectable from "./catalog-previous-active-tab-storage/catalog-previous-active-tab-storage.injectable";
-import catalogEntityStoreInjectable from "./catalog-entity-store/catalog-entity-store.injectable";
-import type { GetCategoryColumnsParams, CategoryColumns } from "./columns/get.injectable";
-import getCategoryColumnsInjectable from "./columns/get.injectable";
-import type { RegisteredCustomCategoryViewDecl } from "./custom-views.injectable";
-import customCategoryViewsInjectable from "./custom-views.injectable";
-import type { CustomCategoryViewComponents } from "./custom-views";
-import type { NavigateToCatalog } from "../../../common/front-end-routing/routes/catalog/navigate-to-catalog.injectable";
-import navigateToCatalogInjectable from "../../../common/front-end-routing/routes/catalog/navigate-to-catalog.injectable";
-import catalogRouteParametersInjectable from "./catalog-route-parameters.injectable";
-import { browseCatalogTab } from "./catalog-browse-tab";
-import hotbarStoreInjectable from "../../../common/hotbars/store.injectable";
-import type { HotbarStore } from "../../../common/hotbars/store";
-import type { VisitEntityContextMenu } from "../../../common/catalog/visit-entity-context-menu.injectable";
-import catalogCategoryRegistryInjectable from "../../../common/catalog/category-registry.injectable";
-import visitEntityContextMenuInjectable from "../../../common/catalog/visit-entity-context-menu.injectable";
-import type { Navigate } from "../../navigation/navigate.injectable";
-import navigateInjectable from "../../navigation/navigate.injectable";
-import type { NormalizeCatalogEntityContextMenu } from "../../catalog/normalize-menu-item.injectable";
-import normalizeCatalogEntityContextMenuInjectable from "../../catalog/normalize-menu-item.injectable";
 import type { EmitAppEvent } from "../../../common/app-event-bus/emit-event.injectable";
 import emitAppEventInjectable from "../../../common/app-event-bus/emit-event.injectable";
+import catalogCategoryRegistryInjectable from "../../../common/catalog/category-registry.injectable";
+import type { VisitEntityContextMenu } from "../../../common/catalog/visit-entity-context-menu.injectable";
+import visitEntityContextMenuInjectable from "../../../common/catalog/visit-entity-context-menu.injectable";
+import type { NavigateToCatalog } from "../../../common/front-end-routing/routes/catalog/navigate-to-catalog.injectable";
+import navigateToCatalogInjectable from "../../../common/front-end-routing/routes/catalog/navigate-to-catalog.injectable";
 import type { Logger } from "../../../common/logger";
 import loggerInjectable from "../../../common/logger.injectable";
+import type { NormalizeCatalogEntityContextMenu } from "../../catalog/normalize-menu-item.injectable";
+import normalizeCatalogEntityContextMenuInjectable from "../../catalog/normalize-menu-item.injectable";
+import type { Navigate } from "../../navigation/navigate.injectable";
+import navigateInjectable from "../../navigation/navigate.injectable";
+import type { StorageLayer } from "../../utils/storage-helper";
 import showErrorNotificationInjectable from "../notifications/show-error-notification.injectable";
+import { browseCatalogTab } from "./catalog-browse-tab";
+import catalogEntityStoreInjectable from "./catalog-entity-store.injectable";
+import catalogPreviousActiveTabStorageInjectable from "./catalog-previous-active-tab-storage/catalog-previous-active-tab-storage.injectable";
+import catalogRouteParametersInjectable from "./catalog-route-parameters.injectable";
+import type { CategoryColumns, GetCategoryColumnsParams } from "./columns/get.injectable";
+import getCategoryColumnsInjectable from "./columns/get.injectable";
+import type { CustomCategoryViewComponents } from "./custom-views";
+import type { RegisteredCustomCategoryViewDecl } from "./custom-views.injectable";
+import customCategoryViewsInjectable from "./custom-views.injectable";
+import type { OnCatalogEntityListClick } from "./entity-details/on-catalog-click.injectable";
+import onCatalogEntityListClickInjectable from "./entity-details/on-catalog-click.injectable";
+import type { ShowEntityDetails } from "./entity-details/show.injectable";
+import showEntityDetailsInjectable from "./entity-details/show.injectable";
+import type { Hotbar } from "../../../features/hotbar/storage/common/hotbar";
+import activeHotbarInjectable from "../../../features/hotbar/storage/common/active.injectable";
 
 interface Dependencies {
   catalogPreviousActiveTabStorage: StorageLayer<string | null>;
@@ -58,18 +58,20 @@ interface Dependencies {
   getCategoryColumns: (params: GetCategoryColumnsParams) => CategoryColumns;
   customCategoryViews: IComputedValue<Map<string, Map<string, RegisteredCustomCategoryViewDecl>>>;
   emitEvent: EmitAppEvent;
+  showEntityDetails: ShowEntityDetails;
+  onCatalogEntityListClick: OnCatalogEntityListClick;
   routeParameters: {
     group: IComputedValue<string>;
     kind: IComputedValue<string>;
   };
   navigateToCatalog: NavigateToCatalog;
-  hotbarStore: HotbarStore;
   catalogCategoryRegistry: CatalogCategoryRegistry;
   visitEntityContextMenu: VisitEntityContextMenu;
   navigate: Navigate;
   normalizeMenuItem: NormalizeCatalogEntityContextMenu;
   showErrorNotification: ShowNotification;
   logger: Logger;
+  activeHotbar: IComputedValue<Hotbar | undefined>;
 }
 
 @observer
@@ -154,33 +156,23 @@ class NonInjectedCatalog extends React.Component<Dependencies> {
   }
 
   addToHotbar(entity: CatalogEntity): void {
-    this.props.hotbarStore.addToHotbar(entity);
+    this.props.activeHotbar.get()?.addEntity(entity);
   }
 
   removeFromHotbar(entity: CatalogEntity): void {
-    this.props.hotbarStore.removeFromHotbar(entity.getId());
-  }
-
-  onDetails = (entity: CatalogEntity) => {
-    if (this.props.catalogEntityStore.selectedItemId.get()) {
-      this.props.catalogEntityStore.selectedItemId.set(undefined);
-    } else {
-      this.props.catalogEntityStore.onRun(entity);
-    }
-  };
-
-  get categories() {
-    return this.props.catalogCategoryRegistry.items;
+    this.props.activeHotbar.get()?.removeEntity(entity.getId());
   }
 
   onTabChange = action((tabId: string | null) => {
-    const activeCategory = this.categories.find(category => category.getId() === tabId);
+    const activeCategory = tabId
+      ? this.props.catalogCategoryRegistry.getById(tabId)
+      : undefined;
 
     this.props.emitEvent({
       name: "catalog",
       action: "change-category",
       params: {
-        category: activeCategory ? activeCategory.getName() : "Browse",
+        category: activeCategory?.getName() ?? "Browse",
       },
     });
 
@@ -211,7 +203,7 @@ class NonInjectedCatalog extends React.Component<Dependencies> {
         <MenuItem
           key="open-details"
           data-testid={`open-details-menu-item-for-${entity.getId()}`}
-          onClick={() => this.props.catalogEntityStore.selectedItemId.set(entity.getId())}
+          onClick={() => this.props.showEntityDetails(entity.getId())}
         >
           View Details
         </MenuItem>
@@ -233,33 +225,6 @@ class NonInjectedCatalog extends React.Component<Dependencies> {
       </MenuActions>
     );
   };
-
-  renderName(entity: CatalogEntity) {
-    const isItemInHotbar = this.props.hotbarStore.isAddedToActive(entity);
-
-    return (
-      <>
-        <Avatar
-          title={entity.getName()}
-          colorHash={`${entity.getName()}-${entity.getSource()}`}
-          src={entity.spec.icon?.src}
-          background={entity.spec.icon?.background}
-          className={styles.catalogAvatar}
-          size={24}
-        >
-          {entity.spec.icon?.material && <Icon material={entity.spec.icon?.material} small/>}
-        </Avatar>
-        <span>{entity.getName()}</span>
-        <Icon
-          small
-          className={styles.pinIcon}
-          svg={isItemInHotbar ? "push_off" : "push_pin"}
-          tooltip={isItemInHotbar ? "Remove from Hotbar" : "Add to Hotbar"}
-          onClick={prevDefault(() => isItemInHotbar ? this.removeFromHotbar(entity) : this.addToHotbar(entity))}
-        />
-      </>
-    );
-  }
 
   renderViews = (activeCategory: CatalogCategory | undefined) => {
     if (!activeCategory) {
@@ -309,8 +274,11 @@ class NonInjectedCatalog extends React.Component<Dependencies> {
           disabled: !entity.isEnabled(),
         })}
         {...getCategoryColumns({ activeCategory })}
-        onDetails={this.onDetails}
+        onDetails={this.props.onCatalogEntityListClick}
         renderItemMenu={this.renderItemMenu}
+        tableProps={{
+          customRowHeights: () => 36, // Entity avatar size + padding
+        }}
         data-testid={`catalog-list-for-${activeCategory?.metadata.name ?? "browse-all"}`}
       />
     );
@@ -318,7 +286,6 @@ class NonInjectedCatalog extends React.Component<Dependencies> {
 
   render() {
     const activeCategory = this.props.catalogEntityStore.activeCategory.get();
-    const selectedItem = this.props.catalogEntityStore.selectedItem.get();
 
     return (
       <MainLayout
@@ -333,21 +300,13 @@ class NonInjectedCatalog extends React.Component<Dependencies> {
           {this.renderViews(activeCategory)}
         </div>
         {
-          selectedItem
+          activeCategory
             ? (
-              <CatalogEntityDetails
-                entity={selectedItem}
-                hideDetails={() => this.props.catalogEntityStore.selectedItemId.set(undefined)}
-                onRun={() => this.props.catalogEntityStore.onRun(selectedItem)}
-              />
+              <RenderDelay>
+                <CatalogAddButton category={activeCategory} />
+              </RenderDelay>
             )
-            : activeCategory
-              ? (
-                <RenderDelay>
-                  <CatalogAddButton category={activeCategory} />
-                </RenderDelay>
-              )
-              : null
+            : null
         }
       </MainLayout>
     );
@@ -364,12 +323,14 @@ export const Catalog = withInjectables<Dependencies>(NonInjectedCatalog, {
     routeParameters: di.inject(catalogRouteParametersInjectable),
     navigateToCatalog: di.inject(navigateToCatalogInjectable),
     emitEvent: di.inject(emitAppEventInjectable),
-    hotbarStore: di.inject(hotbarStoreInjectable),
+    activeHotbar: di.inject(activeHotbarInjectable),
     catalogCategoryRegistry: di.inject(catalogCategoryRegistryInjectable),
     visitEntityContextMenu: di.inject(visitEntityContextMenuInjectable),
     navigate: di.inject(navigateInjectable),
     normalizeMenuItem: di.inject(normalizeCatalogEntityContextMenuInjectable),
     logger: di.inject(loggerInjectable),
     showErrorNotification: di.inject(showErrorNotificationInjectable),
+    showEntityDetails: di.inject(showEntityDetailsInjectable),
+    onCatalogEntityListClick: di.inject(onCatalogEntityListClickInjectable),
   }),
 });

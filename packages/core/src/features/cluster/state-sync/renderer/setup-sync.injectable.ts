@@ -3,25 +3,24 @@
  * Licensed under MIT License. See LICENSE in root directory for more information.
  */
 import { getInjectable } from "@ogre-tools/injectable";
-import getClusterByIdInjectable from "../../../../common/cluster-store/get-by-id.injectable";
 import { beforeFrameStartsSecondInjectionToken } from "../../../../renderer/before-frame-starts/tokens";
-import initClusterStoreInjectable from "../../store/renderer/init.injectable";
+import getClusterByIdInjectable from "../../storage/common/get-by-id.injectable";
+import initClusterStoreInjectable from "../../storage/renderer/init.injectable";
 import requestInitialClusterStatesInjectable from "./request-initial.injectable";
 
 const setupClusterStateSyncInjectable = getInjectable({
   id: "setup-cluster-state-sync",
   instantiate: (di) => ({
-    id: "setup-cluster-state-sync",
     run: async () => {
       const requestInitialClusterStates = di.inject(requestInitialClusterStatesInjectable);
       const getClusterById = di.inject(getClusterByIdInjectable);
-      const initalStates = await requestInitialClusterStates();
+      const initialStates = await requestInitialClusterStates();
 
-      for (const { clusterId, state } of initalStates) {
+      for (const { clusterId, state } of initialStates) {
         getClusterById(clusterId)?.setState(state);
       }
     },
-    runAfter: di.inject(initClusterStoreInjectable),
+    runAfter: initClusterStoreInjectable,
   }),
   injectionToken: beforeFrameStartsSecondInjectionToken,
 });

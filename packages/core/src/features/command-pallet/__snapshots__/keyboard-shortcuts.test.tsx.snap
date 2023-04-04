@@ -199,11 +199,11 @@ exports[`Command Pallet: keyboard shortcut tests when on linux renders 1`] = `
                   If you have any questions or feedback, please join our 
                   <a
                     class="link"
-                    href="https://k8slens.dev/slack.html"
+                    href="https://forums.k8slens.dev"
                     rel="noreferrer"
                     target="_blank"
                   >
-                    Lens Community slack channel
+                    Lens Forums
                   </a>
                   .
                 </p>
@@ -322,7 +322,7 @@ exports[`Command Pallet: keyboard shortcut tests when on linux renders 1`] = `
           class="HotbarSelector"
         >
           <i
-            class="Icon Icon previous material interactive focusable"
+            class="Icon material interactive focusable"
             tabindex="0"
           >
             <span
@@ -575,11 +575,11 @@ exports[`Command Pallet: keyboard shortcut tests when on linux when pressing ESC
                   If you have any questions or feedback, please join our 
                   <a
                     class="link"
-                    href="https://k8slens.dev/slack.html"
+                    href="https://forums.k8slens.dev"
                     rel="noreferrer"
                     target="_blank"
                   >
-                    Lens Community slack channel
+                    Lens Forums
                   </a>
                   .
                 </p>
@@ -698,7 +698,7 @@ exports[`Command Pallet: keyboard shortcut tests when on linux when pressing ESC
           class="HotbarSelector"
         >
           <i
-            class="Icon Icon previous material interactive focusable"
+            class="Icon material interactive focusable"
             tabindex="0"
           >
             <span
@@ -951,11 +951,11 @@ exports[`Command Pallet: keyboard shortcut tests when on linux when pressing SHI
                   If you have any questions or feedback, please join our 
                   <a
                     class="link"
-                    href="https://k8slens.dev/slack.html"
+                    href="https://forums.k8slens.dev"
                     rel="noreferrer"
                     target="_blank"
                   >
-                    Lens Community slack channel
+                    Lens Forums
                   </a>
                   .
                 </p>
@@ -1074,7 +1074,7 @@ exports[`Command Pallet: keyboard shortcut tests when on linux when pressing SHI
           class="HotbarSelector"
         >
           <i
-            class="Icon Icon previous material interactive focusable"
+            class="Icon material interactive focusable"
             tabindex="0"
           >
             <span
@@ -1339,11 +1339,11 @@ exports[`Command Pallet: keyboard shortcut tests when on linux when pressing SHI
                   If you have any questions or feedback, please join our 
                   <a
                     class="link"
-                    href="https://k8slens.dev/slack.html"
+                    href="https://forums.k8slens.dev"
                     rel="noreferrer"
                     target="_blank"
                   >
-                    Lens Community slack channel
+                    Lens Forums
                   </a>
                   .
                 </p>
@@ -1462,7 +1462,7 @@ exports[`Command Pallet: keyboard shortcut tests when on linux when pressing SHI
           class="HotbarSelector"
         >
           <i
-            class="Icon Icon previous material interactive focusable"
+            class="Icon material interactive focusable"
             tabindex="0"
           >
             <span
@@ -1624,11 +1624,11 @@ exports[`Command Pallet: keyboard shortcut tests when on macOS renders 1`] = `
                   If you have any questions or feedback, please join our 
                   <a
                     class="link"
-                    href="https://k8slens.dev/slack.html"
+                    href="https://forums.k8slens.dev"
                     rel="noreferrer"
                     target="_blank"
                   >
-                    Lens Community slack channel
+                    Lens Forums
                   </a>
                   .
                 </p>
@@ -1747,7 +1747,7 @@ exports[`Command Pallet: keyboard shortcut tests when on macOS renders 1`] = `
           class="HotbarSelector"
         >
           <i
-            class="Icon Icon previous material interactive focusable"
+            class="Icon material interactive focusable"
             tabindex="0"
           >
             <span
@@ -1909,11 +1909,11 @@ exports[`Command Pallet: keyboard shortcut tests when on macOS when pressing ESC
                   If you have any questions or feedback, please join our 
                   <a
                     class="link"
-                    href="https://k8slens.dev/slack.html"
+                    href="https://forums.k8slens.dev"
                     rel="noreferrer"
                     target="_blank"
                   >
-                    Lens Community slack channel
+                    Lens Forums
                   </a>
                   .
                 </p>
@@ -2032,7 +2032,7 @@ exports[`Command Pallet: keyboard shortcut tests when on macOS when pressing ESC
           class="HotbarSelector"
         >
           <i
-            class="Icon Icon previous material interactive focusable"
+            class="Icon material interactive focusable"
             tabindex="0"
           >
             <span
@@ -2194,11 +2194,11 @@ exports[`Command Pallet: keyboard shortcut tests when on macOS when pressing SHI
                   If you have any questions or feedback, please join our 
                   <a
                     class="link"
-                    href="https://k8slens.dev/slack.html"
+                    href="https://forums.k8slens.dev"
                     rel="noreferrer"
                     target="_blank"
                   >
-                    Lens Community slack channel
+                    Lens Forums
                   </a>
                   .
                 </p>
@@ -2317,7 +2317,7 @@ exports[`Command Pallet: keyboard shortcut tests when on macOS when pressing SHI
           class="HotbarSelector"
         >
           <i
-            class="Icon Icon previous material interactive focusable"
+            class="Icon material interactive focusable"
             tabindex="0"
           >
             <span
@@ -2491,11 +2491,11 @@ exports[`Command Pallet: keyboard shortcut tests when on macOS when pressing SHI
                   If you have any questions or feedback, please join our 
                   <a
                     class="link"
-                    href="https://k8slens.dev/slack.html"
+                    href="https://forums.k8slens.dev"
                     rel="noreferrer"
                     target="_blank"
                   >
-                    Lens Community slack channel
+                    Lens Forums
                   </a>
                   .
                 </p>
@@ -2614,7 +2614,7 @@ exports[`Command Pallet: keyboard shortcut tests when on macOS when pressing SHI
           class="HotbarSelector"
         >
           <i
-            class="Icon Icon previous material interactive focusable"
+            class="Icon material interactive focusable"
             tabindex="0"
           >
             <span

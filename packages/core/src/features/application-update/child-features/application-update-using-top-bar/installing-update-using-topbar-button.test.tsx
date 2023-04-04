@@ -16,7 +16,7 @@ import type { ApplicationBuilder } from "../../../../renderer/components/test-ut
 import { getApplicationBuilder } from "../../../../renderer/components/test-utils/get-application-builder";
 import processCheckingForUpdatesInjectable from "../../main/process-checking-for-updates.injectable";
 import quitAndInstallUpdateInjectable from "../../main/quit-and-install-update.injectable";
-import { advanceFakeTime, testUsingFakeTime } from "../../../../common/test-utils/use-fake-time";
+import { testUsingFakeTime, advanceFakeTime } from "../../../../test-utils/use-fake-time";
 
 function daysToMilliseconds(days: number) {
   return Math.round(days * 24 * 60 * 60 * 1000);
@@ -33,7 +33,7 @@ describe("encourage user to update when sufficient time passed since update was 
 
     applicationBuilder = getApplicationBuilder();
 
-    applicationBuilder.beforeApplicationStart((mainDi) => {
+    applicationBuilder.beforeApplicationStart(({ mainDi }) => {
       checkForPlatformUpdatesMock = asyncFn();
       downloadPlatformUpdateMock = asyncFn();
 

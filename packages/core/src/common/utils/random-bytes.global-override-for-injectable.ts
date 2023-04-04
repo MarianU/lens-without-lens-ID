@@ -3,10 +3,10 @@
  * Licensed under MIT License. See LICENSE in root directory for more information.
  */
 
-import { getGlobalOverride } from "../test-utils/get-global-override";
+import { getGlobalOverride } from "@k8slens/test-utils";
 import randomBytesInjectable from "./random-bytes.injectable";
 
-export default getGlobalOverride(randomBytesInjectable, () => async (size) => {
+export default getGlobalOverride(randomBytesInjectable, () => (size) => {
   const res = Buffer.alloc(size);
 
   for (let i = 0; i < size; i += 1) {

@@ -14,7 +14,7 @@
  import CopyPlugin from "copy-webpack-plugin";
  import type { WebpackPluginInstance } from "webpack";
  import { DefinePlugin } from "webpack";
- import { assetsFolderName, isDevelopment, rendererDir, buildDir, htmlTemplate, publicPath, sassCommonVars } from "./vars";
+ import { assetsFolderName, isDevelopment, rendererDir, buildDir, htmlTemplate, publicPath } from "./vars";
  import { platform } from "process";
 
  const renderer: webpack.Configuration = {
@@ -117,7 +117,8 @@
     new CopyPlugin({
       patterns: [
         {
-          from: "node_modules/@k8slens/core/static/build/library/*.ttf",
+          // TODO: Figure out a way to access without relative path
+          from: "../../node_modules/@k8slens/core/static/build/library/*.ttf",
           to: "[name][ext]",
         },
       ],

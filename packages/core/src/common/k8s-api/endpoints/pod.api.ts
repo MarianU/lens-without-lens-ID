@@ -3,14 +3,25 @@
  * Licensed under MIT License. See LICENSE in root directory for more information.
  */
 
-import type { DerivedKubeApiOptions, KubeApiDependencies, ResourceDescriptor } from "../kube-api";
+import type {
+  DeleteResourceDescriptor,
+  DerivedKubeApiOptions,
+  KubeApiDependencies,
+  ResourceDescriptor,
+} from "../kube-api";
 import { KubeApi } from "../kube-api";
 import type { RequireExactlyOne } from "type-fest";
-import type { KubeObjectMetadata, LocalObjectReference, Affinity, Toleration, NamespaceScopedMetadata } from "../kube-object";
+import type {
+  Affinity,
+  KubeObjectMetadata, KubeStatusData,
+  LocalObjectReference,
+  NamespaceScopedMetadata,
+  Toleration,
+} from "../kube-object";
+import { isKubeStatusData, KubeObject, KubeStatus } from "../kube-object";
 import type { SecretReference } from "./secret.api";
 import type { PersistentVolumeClaimSpec } from "./persistent-volume-claim.api";
-import { KubeObject } from "../kube-object";
-import { isDefined } from "../../utils";
+import { isDefined } from "@k8slens/utilities";
 import type { PodSecurityContext } from "./types/pod-security-context";
 import type { Probe } from "./types/probe";
 import type { Container } from "./types/container";
@@ -22,6 +33,38 @@ export class PodApi extends KubeApi<Pod> {
       ...opts ?? {},
       objectConstructor: Pod,
     });
+  }
+
+  async evict(resource: DeleteResourceDescriptor) {
+    await this.checkPreferredVersion();
+    const apiUrl = this.formatUrlForNotListing(resource);
+    let response: KubeStatusData;
+
+    try {
+      response = await this.request.post<KubeStatusData>(`${apiUrl}/eviction`, {
+        data: {
+          apiVersion: "policy/v1",
+          kind: "Eviction",
+          metadata: {
+            ...resource,
+          },
+        },
+      });
+    } catch (err) {
+      response = err as KubeStatusData;
+    }
+
+    if (isKubeStatusData(response)) {
+      const status = new KubeStatus(response);
+
+      if (status.code >= 200 && status.code < 300) {
+        return status.getExplanation();
+      } else {
+        throw status.getExplanation();
+      }
+    }
+
+    return response;
   }
 
   async getLogs(params: ResourceDescriptor, query?: PodLogsQuery): Promise<string> {
@@ -79,6 +122,8 @@ export interface ContainerState {
   waiting?: ContainerStateWaiting;
   terminated?: ContainerStateTerminated;
 }
+
+export type ContainerStateValues = Partial<ContainerState[keyof ContainerState]>;
 
 export interface PodContainerStatus {
   name: string;
@@ -649,7 +694,7 @@ export class Pod extends KubeObject<
       .filter(({ name }) => runningContainerNames.has(name));
   }
 
-  getContainerStatuses(includeInitContainers = true) {
+  getContainerStatuses(includeInitContainers = true): PodContainerStatus[] {
     const { containerStatuses = [], initContainerStatuses = [] } = this.status ?? {};
 
     if (includeInitContainers) {

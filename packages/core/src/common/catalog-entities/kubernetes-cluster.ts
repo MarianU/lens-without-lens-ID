@@ -6,13 +6,11 @@
 import type { CatalogEntityActionContext, CatalogEntityContextMenuContext, CatalogEntityMetadata, CatalogEntityStatus, CatalogCategorySpec } from "../catalog";
 import { CatalogEntity, CatalogCategory, categoryVersion } from "../catalog/catalog-entity";
 import { broadcastMessage } from "../ipc";
-import { app } from "electron";
 import type { CatalogEntityConstructor, CatalogEntitySpec } from "../catalog/catalog-entity";
 import { IpcRendererNavigationEvents } from "../ipc/navigation-events";
-import { requestClusterActivation, requestClusterDisconnection } from "../../renderer/ipc";
 import KubeClusterCategoryIcon from "./icons/kubernetes.svg";
-import getClusterByIdInjectable from "../cluster-store/get-by-id.injectable";
 import { getLegacyGlobalDiForExtensionApi } from "../../extensions/as-legacy-globals-for-extension-api/legacy-global-di-for-extension-api";
+import { requestClusterActivationInjectionToken, requestClusterDeactivationInjectionToken } from "../../features/cluster/activation/common/request-token";
 
 export interface KubernetesClusterPrometheusMetrics {
   address?: {
@@ -76,25 +74,19 @@ export class KubernetesCluster<
   public readonly kind = KubernetesCluster.kind;
 
   async connect(): Promise<void> {
-    if (app) {
-      const di = getLegacyGlobalDiForExtensionApi();
-      const getClusterById = di.inject(getClusterByIdInjectable);
+    const di = getLegacyGlobalDiForExtensionApi();
+    const requestClusterActivation = di.inject(requestClusterActivationInjectionToken);
 
-      await getClusterById(this.getId())?.activate();
-    } else {
-      await requestClusterActivation(this.getId(), false);
-    }
+    await requestClusterActivation({
+      clusterId: this.getId(),
+    });
   }
 
   async disconnect(): Promise<void> {
-    if (app) {
-      const di = getLegacyGlobalDiForExtensionApi();
-      const getClusterById = di.inject(getClusterByIdInjectable);
+    const di = getLegacyGlobalDiForExtensionApi();
+    const requestClusterDeactivation = di.inject(requestClusterDeactivationInjectionToken);
 
-      getClusterById(this.getId())?.disconnect();
-    } else {
-      await requestClusterDisconnection(this.getId(), false);
-    }
+    await requestClusterDeactivation(this.getId());
   }
 
   async onRun(context: CatalogEntityActionContext) {
@@ -127,7 +119,13 @@ export class KubernetesCluster<
         context.menuItems.push({
           title: "Disconnect",
           icon: "link_off",
-          onClick: () => requestClusterDisconnection(this.getId()),
+          onClick: () => {
+            this.disconnect();
+            broadcastMessage(
+              IpcRendererNavigationEvents.NAVIGATE_IN_APP,
+              "/catalog",
+            );
+          },
         });
         break;
       case LensKubernetesClusterStatus.DISCONNECTED:

@@ -9,7 +9,7 @@ import React from "react";
 
 import { Link } from "react-router-dom";
 import { DrawerItem, DrawerTitle } from "../../drawer";
-import { stopPropagation } from "../../../utils";
+import { stopPropagation } from "@k8slens/utilities";
 import { observer } from "mobx-react";
 import { withInjectables } from "@ogre-tools/injectable-react";
 import type { ConfigurationInput, MinimalResourceGroup, OnlyUserSuppliedValuesAreShownToggle, ReleaseDetailsModel } from "./release-details-model/release-details-model.injectable";
@@ -85,6 +85,7 @@ const NonInjectedReleaseDetailsContent = observer(({ model }: Dependencies & Rel
       </DrawerItem>
 
       <ReleaseValues
+        releaseId={model.id}
         configuration={model.configuration}
         onlyUserSuppliedValuesAreShown={
           model.onlyUserSuppliedValuesAreShown
@@ -150,11 +151,12 @@ const ResourceGroup = ({
 );
 
 interface ReleaseValuesProps {
+  releaseId: string;
   configuration: ConfigurationInput;
   onlyUserSuppliedValuesAreShown: OnlyUserSuppliedValuesAreShownToggle;
 }
 
-const ReleaseValues = observer(({ configuration, onlyUserSuppliedValuesAreShown }: ReleaseValuesProps) => {
+const ReleaseValues = observer(({ releaseId, configuration, onlyUserSuppliedValuesAreShown }: ReleaseValuesProps) => {
   const configurationIsLoading = configuration.isLoading.get();
 
   return (
@@ -171,7 +173,7 @@ const ReleaseValues = observer(({ configuration, onlyUserSuppliedValuesAreShown 
         />
 
         <MonacoEditor
-          id="helm-release-configuration"
+          id={`helm-release-configuration-${releaseId}`}
           style={{ minHeight: 300 }}
           value={configuration.nonSavedValue.get()}
           onChange={configuration.onChange}

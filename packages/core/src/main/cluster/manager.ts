@@ -4,29 +4,36 @@
  */
 
 import "../../common/ipc/cluster";
-import type { IObservableValue, ObservableSet } from "mobx";
+import type { IComputedValue, IObservableValue, ObservableSet } from "mobx";
 import { action, makeObservable, observe, reaction, toJS } from "mobx";
 import type { Cluster } from "../../common/cluster/cluster";
-import { isErrnoException } from "../../common/utils";
-import type { KubernetesClusterPrometheusMetrics } from "../../common/catalog-entities/kubernetes-cluster";
 import { isKubernetesCluster, KubernetesCluster, LensKubernetesClusterStatus } from "../../common/catalog-entities/kubernetes-cluster";
 import { ipcMainOn } from "../../common/ipc";
 import { once } from "lodash";
-import type { ClusterStore } from "../../common/cluster-store/cluster-store";
 import type { ClusterId } from "../../common/cluster-types";
 import type { CatalogEntityRegistry } from "../catalog";
 import type { Logger } from "../../common/logger";
+import type { UpdateEntityMetadata } from "./update-entity-metadata.injectable";
+import type { UpdateEntitySpec } from "./update-entity-spec.injectable";
+import type { ClusterConnection } from "./cluster-connection.injectable";
+import type { GetClusterById } from "../../features/cluster/storage/common/get-by-id.injectable";
+import type { AddCluster } from "../../features/cluster/storage/common/add.injectable";
 
 const logPrefix = "[CLUSTER-MANAGER]:";
 
 const lensSpecificClusterStatuses: Set<string> = new Set(Object.values(LensKubernetesClusterStatus));
 
 interface Dependencies {
-  readonly store: ClusterStore;
   readonly catalogEntityRegistry: CatalogEntityRegistry;
   readonly clustersThatAreBeingDeleted: ObservableSet<ClusterId>;
   readonly visibleCluster: IObservableValue<ClusterId | null>;
   readonly logger: Logger;
+  readonly clusters: IComputedValue<Cluster[]>;
+  updateEntityMetadata: UpdateEntityMetadata;
+  updateEntitySpec: UpdateEntitySpec;
+  getClusterConnection: (cluster: Cluster) => ClusterConnection;
+  getClusterById: GetClusterById;
+  addCluster: AddCluster;
 }
 
 export class ClusterManager {
@@ -37,15 +44,15 @@ export class ClusterManager {
   init = once(() => {
     // reacting to every cluster's state change and total amount of items
     reaction(
-      () => this.dependencies.store.clustersList.map(c => c.getState()),
-      () => this.updateCatalog(this.dependencies.store.clustersList),
+      () => this.dependencies.clusters.get().map(c => c.getState()),
+      () => this.updateCatalog(this.dependencies.clusters.get()),
       { fireImmediately: false },
     );
 
     // reacting to every cluster's preferences change and total amount of items
     reaction(
-      () => this.dependencies.store.clustersList.map(c => toJS(c.preferences)),
-      () => this.updateCatalog(this.dependencies.store.clustersList),
+      () => this.dependencies.clusters.get().map(c => toJS(c.preferences)),
+      () => this.updateCatalog(this.dependencies.clusters.get()),
       { fireImmediately: false },
     );
 
@@ -97,42 +104,8 @@ export class ClusterManager {
 
     this.updateEntityStatus(entity, cluster);
 
-    entity.metadata.labels = {
-      ...entity.metadata.labels,
-      ...cluster.labels,
-    };
-    entity.metadata.distro = cluster.distribution;
-    entity.metadata.kubeVersion = cluster.version;
-
-    if (cluster.preferences?.clusterName) {
-      /**
-       * Only set the name if the it is overriden in preferences. If it isn't
-       * set then the name of the entity has been explicitly set by its source
-       */
-      entity.metadata.name = cluster.preferences.clusterName;
-    }
-
-    entity.spec.metrics ||= { source: "local" };
-
-    if (entity.spec.metrics.source === "local") {
-      const prometheus: KubernetesClusterPrometheusMetrics = entity.spec?.metrics?.prometheus || {};
-
-      prometheus.type = cluster.preferences.prometheusProvider?.type;
-      prometheus.address = cluster.preferences.prometheus;
-      entity.spec.metrics.prometheus = prometheus;
-    }
-
-    if (cluster.preferences.icon) {
-      entity.spec.icon ??= {};
-      entity.spec.icon.src = cluster.preferences.icon;
-    } else if (cluster.preferences.icon === null) {
-      /**
-       * NOTE: only clear the icon if set to `null` by ClusterIconSettings.
-       * We can then also clear that value too
-       */
-      entity.spec.icon = undefined;
-      cluster.preferences.icon = undefined;
-    }
+    this.dependencies.updateEntityMetadata(entity, cluster);
+    this.dependencies.updateEntitySpec(entity, cluster);
 
     this.dependencies.catalogEntityRegistry.items.splice(index, 1, entity);
   }
@@ -150,13 +123,13 @@ export class ClusterManager {
           return LensKubernetesClusterStatus.DISCONNECTED;
         }
 
-        if (cluster.accessible) {
+        if (cluster.accessible.get()) {
           this.dependencies.logger.silly(`${logPrefix} setting entity ${entity.getName()} to CONNECTED, reason="cluster is accessible"`);
 
           return LensKubernetesClusterStatus.CONNECTED;
         }
 
-        if (!cluster.disconnected) {
+        if (!cluster.disconnected.get()) {
           this.dependencies.logger.silly(`${logPrefix} setting entity ${entity.getName()} to CONNECTING, reason="cluster is not disconnected"`);
 
           return LensKubernetesClusterStatus.CONNECTING;
@@ -181,32 +154,18 @@ export class ClusterManager {
   @action
   protected syncClustersFromCatalog(entities: KubernetesCluster[]) {
     for (const entity of entities) {
-      const cluster = this.dependencies.store.getById(entity.getId());
+      const cluster = this.dependencies.getClusterById(entity.getId());
 
       if (!cluster) {
-        const model = {
+        this.dependencies.addCluster({
           id: entity.getId(),
           kubeConfigPath: entity.spec.kubeconfigPath,
           contextName: entity.spec.kubeconfigContext,
           accessibleNamespaces: entity.spec.accessibleNamespaces ?? [],
-        };
-
-        try {
-          /**
-           * Add the bare minimum of data to ClusterStore. And especially no
-           * preferences, as those might be configured by the entity's source
-           */
-          this.dependencies.store.addCluster(model);
-        } catch (error) {
-          if (isErrnoException(error) && error.code === "ENOENT" && error.path === entity.spec.kubeconfigPath) {
-            this.dependencies.logger.warn(`${logPrefix} kubeconfig file disappeared`, model);
-          } else {
-            this.dependencies.logger.error(`${logPrefix} failed to add cluster: ${error}`, model);
-          }
-        }
+        });
       } else {
-        cluster.kubeConfigPath = entity.spec.kubeconfigPath;
-        cluster.contextName = entity.spec.kubeconfigContext;
+        cluster.kubeConfigPath.set(entity.spec.kubeconfigPath);
+        cluster.contextName.set(entity.spec.kubeconfigContext);
 
         if (entity.spec.accessibleNamespaces) {
           cluster.accessibleNamespaces.replace(entity.spec.accessibleNamespaces);
@@ -233,30 +192,47 @@ export class ClusterManager {
     }
   }
 
-  protected onNetworkOffline = () => {
+  protected onNetworkOffline = async () => {
     this.dependencies.logger.info(`${logPrefix} network is offline`);
-    this.dependencies.store.clustersList.forEach((cluster) => {
-      if (!cluster.disconnected) {
-        cluster.online = false;
-        cluster.accessible = false;
-        cluster.refreshConnectionStatus().catch((e) => e);
-      }
-    });
+
+    await Promise.allSettled(
+      this.dependencies
+        .clusters
+        .get()
+        .filter(cluster => !cluster.disconnected.get())
+        .map(async (cluster) => {
+          cluster.online.set(false);
+          cluster.accessible.set(false);
+
+          await this.dependencies
+            .getClusterConnection(cluster)
+            .refreshConnectionStatus();
+        }),
+    );
   };
 
-  protected onNetworkOnline = () => {
+  protected onNetworkOnline = async () => {
     this.dependencies.logger.info(`${logPrefix} network is online`);
-    this.dependencies.store.clustersList.forEach((cluster) => {
-      if (!cluster.disconnected) {
-        cluster.refreshConnectionStatus().catch((e) => e);
-      }
-    });
+
+    await Promise.allSettled(
+      this.dependencies
+        .clusters
+        .get()
+        .filter(cluster => !cluster.disconnected.get())
+        .map((cluster) => (
+          this.dependencies
+            .getClusterConnection(cluster)
+            .refreshConnectionStatus()
+        )),
+    );
   };
 
   stop() {
-    this.dependencies.store.clusters.forEach((cluster: Cluster) => {
-      cluster.disconnect();
-    });
+    for (const cluster of this.dependencies.clusters.get()) {
+      this.dependencies
+        .getClusterConnection(cluster)
+        .disconnect();
+    }
   }
 }
 
@@ -264,26 +240,26 @@ export function catalogEntityFromCluster(cluster: Cluster) {
   return new KubernetesCluster({
     metadata: {
       uid: cluster.id,
-      name: cluster.name,
+      name: cluster.name.get(),
       source: "local",
       labels: {
         ...cluster.labels,
       },
-      distro: cluster.distribution,
-      kubeVersion: cluster.version,
+      distro: cluster.distribution.get(),
+      kubeVersion: cluster.version.get(),
     },
     spec: {
-      kubeconfigPath: cluster.kubeConfigPath,
-      kubeconfigContext: cluster.contextName,
+      kubeconfigPath: cluster.kubeConfigPath.get(),
+      kubeconfigContext: cluster.contextName.get(),
       icon: {},
     },
     status: {
-      phase: cluster.disconnected
+      phase: cluster.disconnected.get()
         ? LensKubernetesClusterStatus.DISCONNECTED
         : LensKubernetesClusterStatus.CONNECTED,
       reason: "",
       message: "",
-      active: !cluster.disconnected,
+      active: !cluster.disconnected.get(),
     },
   });
 }

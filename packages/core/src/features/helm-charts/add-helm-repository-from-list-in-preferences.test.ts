@@ -15,7 +15,7 @@ import type { HelmRepo } from "../../common/helm/helm-repo";
 import requestPublicHelmRepositoriesInjectable from "./child-features/preferences/renderer/adding-of-public-helm-repository/public-helm-repositories/request-public-helm-repositories.injectable";
 import showSuccessNotificationInjectable from "../../renderer/components/notifications/show-success-notification.injectable";
 import showErrorNotificationInjectable from "../../renderer/components/notifications/show-error-notification.injectable";
-import type { AsyncResult } from "../../common/utils/async-result";
+import type { AsyncResult } from "@k8slens/utilities";
 
 describe("add helm repository from list in preferences", () => {
   let builder: ApplicationBuilder;
@@ -23,7 +23,7 @@ describe("add helm repository from list in preferences", () => {
   let showErrorNotificationMock: jest.Mock;
   let rendered: RenderResult;
   let execFileMock: AsyncFnMock<ExecFile>;
-  let getActiveHelmRepositoriesMock: AsyncFnMock<() => Promise<AsyncResult<HelmRepo[]>>>;
+  let getActiveHelmRepositoriesMock: AsyncFnMock<() => AsyncResult<HelmRepo[]>>;
   let callForPublicHelmRepositoriesMock: AsyncFnMock<() => Promise<HelmRepo[]>>;
 
   beforeEach(async () => {
@@ -35,13 +35,13 @@ describe("add helm repository from list in preferences", () => {
     showSuccessNotificationMock = jest.fn();
     showErrorNotificationMock = jest.fn();
 
-    builder.beforeApplicationStart((mainDi) => {
+    builder.beforeApplicationStart(({ mainDi }) => {
       mainDi.override(getActiveHelmRepositoriesInjectable, () => getActiveHelmRepositoriesMock);
       mainDi.override(execFileInjectable, () => execFileMock);
       mainDi.override(helmBinaryPathInjectable, () => "some-helm-binary-path");
     });
 
-    builder.beforeWindowStart((windowDi) => {
+    builder.beforeWindowStart(({ windowDi }) => {
       windowDi.override(showSuccessNotificationInjectable, () => showSuccessNotificationMock);
       windowDi.override(showErrorNotificationInjectable, () => showErrorNotificationMock);
       windowDi.override(requestPublicHelmRepositoriesInjectable, () => callForPublicHelmRepositoriesMock);

@@ -2,8 +2,8 @@
  * Copyright (c) OpenLens Authors. All rights reserved.
  * Licensed under MIT License. See LICENSE in root directory for more information.
  */
-import type { ApplicationBuilder } from "../../../../renderer/components/test-utils/get-application-builder";
 import { getApplicationBuilder } from "../../../../renderer/components/test-utils/get-application-builder";
+import type { ApplicationBuilder } from "../../../../renderer/components/test-utils/get-application-builder";
 import type { RenderResult } from "@testing-library/react";
 import electronUpdaterIsActiveInjectable from "../../../../main/electron-app/features/electron-updater-is-active.injectable";
 import publishIsConfiguredInjectable from "../../main/updating-is-enabled/publish-is-configured/publish-is-configured.injectable";
@@ -15,18 +15,22 @@ import type { DownloadPlatformUpdate } from "../../main/download-update/download
 import downloadPlatformUpdateInjectable from "../../main/download-update/download-platform-update/download-platform-update.injectable";
 import type { LensWindow } from "../../../../main/start-main-application/lens-window/application-window/create-lens-window.injectable";
 import getCurrentApplicationWindowInjectable from "../../../../main/start-main-application/lens-window/application-window/get-current-application-window.injectable";
+import showMessagePopupInjectable from "../../../../main/electron-app/features/show-message-popup.injectable";
+import type { ShowMessagePopup } from "../../../../main/electron-app/features/show-message-popup.injectable";
 
 describe("installing update using tray", () => {
   let builder: ApplicationBuilder;
   let checkForPlatformUpdatesMock: AsyncFnMock<CheckForPlatformUpdates>;
   let downloadPlatformUpdateMock: AsyncFnMock<DownloadPlatformUpdate>;
+  let showMessagePopupMock: AsyncFnMock<ShowMessagePopup>;
 
   beforeEach(() => {
     builder = getApplicationBuilder();
 
-    builder.beforeApplicationStart((mainDi) => {
+    builder.beforeApplicationStart(({ mainDi }) => {
       checkForPlatformUpdatesMock = asyncFn();
       downloadPlatformUpdateMock = asyncFn();
+      showMessagePopupMock = asyncFn();
 
       mainDi.override(
         checkForPlatformUpdatesInjectable,
@@ -40,6 +44,12 @@ describe("installing update using tray", () => {
 
       mainDi.override(electronUpdaterIsActiveInjectable, () => true);
       mainDi.override(publishIsConfiguredInjectable, () => true);
+
+      mainDi.override(
+        showMessagePopupInjectable,
+        () => showMessagePopupMock,
+      );
+
     });
   });
 
@@ -146,7 +156,7 @@ describe("installing update using tray", () => {
       it("name of tray item for checking updates indicates that checking is happening", () => {
         expect(
           builder.tray.get("check-for-updates")?.label,
-        ).toBe("Checking for updates...");
+        ).toBe("Checking for Updates...");
       });
 
       it("user cannot install update yet", () => {
@@ -164,6 +174,15 @@ describe("installing update using tray", () => {
           });
         });
 
+        it("it displays a popup", () => {
+          expect(showMessagePopupMock).toHaveBeenCalledWith(
+            "No Updates Available",
+            "You're all good",
+            "You've got the latest version of Lens,\nthanks for staying on the ball.",
+            { "textWidth": 300 },
+          );
+        });
+
         it("user cannot install update", () => {
           expect(builder.tray.get("install-update")).toBeNull();
         });
@@ -177,7 +196,7 @@ describe("installing update using tray", () => {
         it("name of tray item for checking updates no longer indicates that checking is happening", () => {
           expect(
             builder.tray.get("check-for-updates")?.label,
-          ).toBe("Check for updates");
+          ).toBe("Check for Updates...");
         });
 
         it("renders", () => {
@@ -241,7 +260,7 @@ describe("installing update using tray", () => {
           it("name of tray item for checking updates no longer indicates that downloading is happening", () => {
             expect(
               builder.tray.get("check-for-updates")?.label,
-            ).toBe("Check for updates");
+            ).toBe("Check for Updates...");
           });
 
           it("renders", () => {
@@ -269,7 +288,7 @@ describe("installing update using tray", () => {
           it("name of tray item for checking updates no longer indicates that downloading is happening", () => {
             expect(
               builder.tray.get("check-for-updates")?.label,
-            ).toBe("Check for updates");
+            ).toBe("Check for Updates...");
           });
 
           it("renders", () => {

@@ -12,15 +12,16 @@ import { editor, Uri } from "monaco-editor";
 import type { MonacoTheme } from "./monaco-themes";
 import { type MonacoValidator, monacoValidators } from "./monaco-validators";
 import { debounce, merge } from "lodash";
-import { autoBind, cssNames, disposer } from "../../utils";
-import type { UserStore } from "../../../common/user-store";
+import { cssNames, disposer } from "@k8slens/utilities";
 import type { LensTheme } from "../../themes/lens-theme";
 import { withInjectables } from "@ogre-tools/injectable-react";
-import userStoreInjectable from "../../../common/user-store/user-store.injectable";
 import activeThemeInjectable from "../../themes/active.injectable";
 import getEditorHeightFromLinesCountInjectable from "./get-editor-height-from-lines-number.injectable";
 import type { Logger } from "../../../common/logger";
 import loggerInjectable from "../../../common/logger.injectable";
+import autoBindReact from "auto-bind/react";
+import type { UserPreferencesState } from "../../../features/user-preferences/common/state.injectable";
+import userPreferencesStateInjectable from "../../../features/user-preferences/common/state.injectable";
 
 export type MonacoEditorId = string;
 
@@ -44,7 +45,7 @@ export interface MonacoEditorProps {
 }
 
 interface Dependencies {
-  userStore: UserStore;
+  state: UserPreferencesState;
   activeTheme: IComputedValue<LensTheme>;
   getEditorHeightFromLinesCount: (linesCount: number) => number;
   logger: Logger;
@@ -82,7 +83,7 @@ class NonInjectedMonacoEditor extends React.Component<MonacoEditorProps & Depend
   constructor(props: MonacoEditorProps & Dependencies) {
     super(props);
     makeObservable(this);
-    autoBind(this);
+    autoBindReact(this);
   }
 
   @computed get id(): MonacoEditorId {
@@ -115,7 +116,7 @@ class NonInjectedMonacoEditor extends React.Component<MonacoEditorProps & Depend
 
   @computed get options(): editor.IStandaloneEditorConstructionOptions {
     return merge({},
-      this.props.userStore.editorConfiguration,
+      this.props.state.editorConfiguration,
       this.props.options,
     );
   }
@@ -324,15 +325,16 @@ class NonInjectedMonacoEditor extends React.Component<MonacoEditorProps & Depend
   }
 }
 
-export const MonacoEditor = withInjectables<Dependencies, MonacoEditorProps, MonacoEditorRef>(
-  React.forwardRef<MonacoEditorRef, MonacoEditorProps & Dependencies>((props, ref) => <NonInjectedMonacoEditor innerRef={ref} {...props} />),
-  {
-    getProps: (di, props) => ({
-      ...props,
-      userStore: di.inject(userStoreInjectable),
-      activeTheme: di.inject(activeThemeInjectable),
-      getEditorHeightFromLinesCount: di.inject(getEditorHeightFromLinesCountInjectable),
-      logger: di.inject(loggerInjectable),
-    }),
-  },
-);
+const ForwardedRefMonacoEditor = React.forwardRef<MonacoEditorRef, MonacoEditorProps & Dependencies>((
+  (props, ref) => <NonInjectedMonacoEditor innerRef={ref} {...props} />
+));
+
+export const MonacoEditor = withInjectables<Dependencies, MonacoEditorProps, MonacoEditorRef>(ForwardedRefMonacoEditor, {
+  getProps: (di, props) => ({
+    ...props,
+    state: di.inject(userPreferencesStateInjectable),
+    activeTheme: di.inject(activeThemeInjectable),
+    getEditorHeightFromLinesCount: di.inject(getEditorHeightFromLinesCountInjectable),
+    logger: di.inject(loggerInjectable),
+  }),
+});

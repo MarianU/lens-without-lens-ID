@@ -10,18 +10,19 @@ import { disposeOnUnmount, observer } from "mobx-react";
 import React from "react";
 import { ipcRendererOn } from "../../../common/ipc";
 import type { Cluster } from "../../../common/cluster/cluster";
-import type { IClassName } from "../../utils";
-import { hasTypedProperty, isObject, isString, cssNames } from "../../utils";
+import type { IClassName } from "@k8slens/utilities";
+import { hasTypedProperty, isObject, isString, cssNames } from "@k8slens/utilities";
 import { Button } from "../button";
 import { Icon } from "../icon";
 import { Spinner } from "../spinner";
 import type { KubeAuthUpdate } from "../../../common/cluster-types";
 import type { CatalogEntityRegistry } from "../../api/catalog/entity/registry";
-import { requestClusterActivation } from "../../ipc";
 import type { NavigateToEntitySettings } from "../../../common/front-end-routing/routes/entity-settings/navigate-to-entity-settings.injectable";
 import { withInjectables } from "@ogre-tools/injectable-react";
 import navigateToEntitySettingsInjectable from "../../../common/front-end-routing/routes/entity-settings/navigate-to-entity-settings.injectable";
 import catalogEntityRegistryInjectable from "../../api/catalog/entity/registry.injectable";
+import type { RequestClusterActivation } from "../../../features/cluster/activation/common/request-token";
+import requestClusterActivationInjectable from "../../../features/cluster/activation/renderer/request-activation.injectable";
 
 export interface ClusterStatusProps {
   className?: IClassName;
@@ -31,6 +32,7 @@ export interface ClusterStatusProps {
 interface Dependencies {
   navigateToEntitySettings: NavigateToEntitySettings;
   entityRegistry: CatalogEntityRegistry;
+  requestClusterActivation: RequestClusterActivation;
 }
 
 @observer
@@ -83,7 +85,10 @@ class NonInjectedClusterStatus extends React.Component<ClusterStatusProps & Depe
     this.isReconnecting = true;
 
     try {
-      await requestClusterActivation(this.cluster.id, true);
+      await this.props.requestClusterActivation({
+        clusterId: this.cluster.id,
+        force: true,
+      });
     } catch (error) {
       this.authOutput.push({
         message: String(error),
@@ -158,7 +163,7 @@ class NonInjectedClusterStatus extends React.Component<ClusterStatusProps & Depe
     return (
       <div className={cssNames(styles.status, "flex column box center align-center justify-center", this.props.className)}>
         <div className="flex items-center column gaps">
-          <h2>{this.entity?.getName() ?? this.cluster.name}</h2>
+          <h2>{this.entity?.getName() ?? this.cluster.name.get()}</h2>
           {this.renderStatusIcon()}
           {this.renderAuthenticationOutput()}
           {this.renderReconnectionHelp()}
@@ -173,5 +178,6 @@ export const ClusterStatus = withInjectables<Dependencies, ClusterStatusProps>(N
     ...props,
     navigateToEntitySettings: di.inject(navigateToEntitySettingsInjectable),
     entityRegistry: di.inject(catalogEntityRegistryInjectable),
+    requestClusterActivation: di.inject(requestClusterActivationInjectable),
   }),
 });

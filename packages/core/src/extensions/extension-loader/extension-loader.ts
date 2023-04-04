@@ -6,12 +6,10 @@
 import { ipcMain, ipcRenderer } from "electron";
 import { isEqual } from "lodash";
 import type { ObservableMap } from "mobx";
-import { action, computed, makeObservable, observable, observe, reaction, when } from "mobx";
+import { action, computed, makeObservable, toJS, observable, observe, reaction, when } from "mobx";
 import { broadcastMessage, ipcMainOn, ipcRendererOn, ipcMainHandle } from "../../common/ipc";
-import { isDefined, toJS } from "../../common/utils";
-import type { InstalledExtension } from "../extension-discovery/extension-discovery";
-import type { LensExtension, LensExtensionConstructor, LensExtensionId } from "../lens-extension";
-import type { LensExtensionState } from "../extensions-store/extensions-store";
+import { isDefined } from "@k8slens/utilities";
+import type { LensExtension } from "../lens-extension";
 import { extensionLoaderFromMainChannel, extensionLoaderFromRendererChannel } from "../../common/ipc/extension-handling";
 import { requestExtensionLoaderInitialState } from "../../renderer/ipc";
 import assert from "assert";
@@ -21,7 +19,8 @@ import type { Extension } from "./extension/extension.injectable";
 import type { Logger } from "../../common/logger";
 import type { JoinPaths } from "../../common/path/join-paths.injectable";
 import type { GetDirnameOfPath } from "../../common/path/get-dirname.injectable";
-import type { BundledExtension } from "../extension-discovery/bundled-extension-token";
+import type { LensExtensionId, BundledExtension, InstalledExtension, LensExtensionConstructor } from "@k8slens/legacy-extensions";
+import type { UpdateExtensionsState } from "../../features/extensions/enabled/common/update-state.injectable";
 
 const logModule = "[EXTENSIONS-LOADER]";
 
@@ -30,7 +29,7 @@ interface Dependencies {
   readonly bundledExtensions: BundledExtension[];
   readonly logger: Logger;
   readonly extensionEntryPointName: "main" | "renderer";
-  updateExtensionsState: (extensionsState: Record<LensExtensionId, LensExtensionState>) => void;
+  updateExtensionsState: UpdateExtensionsState;
   createExtensionInstance: CreateExtensionInstance;
   getExtension: (instance: LensExtension) => Extension;
   joinPaths: JoinPaths;
@@ -126,13 +125,11 @@ export class ExtensionLoader {
 
   // Transform userExtensions to a state object for storing into ExtensionsStore
   @computed get storeState() {
-    return Object.fromEntries(
-      Array.from(this.userExtensions)
-        .map(([extId, extension]) => [extId, {
-          enabled: extension.isEnabled,
-          name: extension.manifest.name,
-        }]),
-    );
+    return Array.from(this.userExtensions)
+      .map(([extId, extension]) => [extId, {
+        enabled: extension.isEnabled,
+        name: extension.manifest.name,
+      }] as const);
   }
 
   @action

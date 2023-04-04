@@ -12,12 +12,11 @@ import getExtensionDestFolderInjectable from "./get-extension-dest-folder.inject
 import type { CreateTempFilesAndValidate } from "./create-temp-files-and-validate.injectable";
 import createTempFilesAndValidateInjectable from "./create-temp-files-and-validate.injectable";
 import extensionInstallationStateStoreInjectable from "../../../../extensions/extension-installation-state-store/extension-installation-state-store.injectable";
-import type { Disposer } from "../../../../common/utils";
-import { disposer } from "../../../../common/utils";
+import type { Disposer } from "@k8slens/utilities";
+import { disposer } from "@k8slens/utilities";
 import type { ShowNotification } from "../../notifications";
 import { Button } from "../../button";
 import type { ExtensionLoader } from "../../../../extensions/extension-loader";
-import type { LensExtensionId } from "../../../../extensions/lens-extension";
 import React from "react";
 import { remove as removeDir } from "fs-extra";
 import { shell } from "electron";
@@ -25,6 +24,7 @@ import type { ExtensionInstallationStateStore } from "../../../../extensions/ext
 import { ExtensionInstallationState } from "../../../../extensions/extension-installation-state-store/extension-installation-state-store";
 import showErrorNotificationInjectable from "../../notifications/show-error-notification.injectable";
 import showInfoNotificationInjectable from "../../notifications/show-info-notification.injectable";
+import type { LensExtensionId } from "@k8slens/legacy-extensions";
 
 export interface InstallRequest {
   fileName: string;

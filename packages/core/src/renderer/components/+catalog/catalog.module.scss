@@ -8,6 +8,10 @@
     opacity: 1;
   }
 
+  :global(.TableCell) {
+    padding: 6px 8px;
+  }
+
   flex-grow: 1;
 }
 
@@ -127,7 +131,7 @@
 }
 
 .catalogAvatar {
-  font-size: 1.2ch;
+  font-size: 1.2ch !important;
 }
 
 .views {

@@ -32,16 +32,16 @@ jobs:
 
       - name: Generate NPM packages
         run: |
-          yarn install --frozen-lockfile
-          yarn run build
+          npm ci
+          npm run build
 
       - name: Publish NPM packages
         run: |
           npm config set '//registry.npmjs.org/:_authToken' "${NPM_TOKEN}"
-          VERSION=$(cat lerna.json | jq '.version' --raw-output)
+          VERSION=$(cat packages/core/package.json | jq '.version' --raw-output)
           echo ${VERSION}
-          DIST_TAG=$(npm exec -- @k8slens/semver --prerelease 0 ${VERSION})
-          yarn lerna \
+          DIST_TAG=$(node packages/semver/dist/index.js --prerelease 0 ${VERSION})
+          npx lerna \
             publish from-package \
             --no-push \
             --no-git-tag-version \

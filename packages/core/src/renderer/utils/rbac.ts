@@ -5,7 +5,7 @@
 
 import type { KubeResource } from "../../common/rbac";
 import { apiResourceRecord } from "../../common/rbac";
-import { object } from "../../common/utils";
+import { object } from "@k8slens/utilities";
 
 export const ResourceNames: Record<KubeResource, string> = {
   "namespaces": "Namespaces",
@@ -27,6 +27,7 @@ export const ResourceNames: Record<KubeResource, string> = {
   "deployments": "Deployments",
   "statefulsets": "Stateful Sets",
   "replicasets": "Replica Sets",
+  "replicationcontrollers": "Replication Controllers",
   "jobs": "Jobs",
   "cronjobs": "Cron Jobs",
   "endpoints": "Endpoints",

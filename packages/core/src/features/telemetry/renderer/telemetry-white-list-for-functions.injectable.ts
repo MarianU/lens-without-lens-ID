@@ -3,6 +3,8 @@
  * Licensed under MIT License. See LICENSE in root directory for more information.
  */
 import { getInjectable } from "@ogre-tools/injectable";
+import type { AppEvent } from "../../../common/app-event-bus/event-bus";
+import { parseKubeApi } from "../../../common/k8s-api/kube-api-parse";
 
 const navigateTo = [
   "navigate-to-preference-tab-id",
@@ -88,21 +90,26 @@ const extensions = [
   "uninstall-extension",
 ];
 
-const externalActions = [
-  "open-link-in-browser",
-];
+const externalActions = ["open-link-in-browser"];
 
-const uiInteraction = [
-  "show-details",
-];
+const uiInteraction = [{
+  id: "show-details",
+  getParams: (selfLink: string) => {
+    return {
+      kind: selfLink ? parseKubeApi(selfLink).resource : "",
+    };
+  },
+}];
 
-const terminal = [
-  "create-terminal-tab",
-];
+const terminal = ["create-terminal-tab"];
+
+export type WhiteListItem =
+  | string
+  | { id: string; getParams: (...args: any[]) => AppEvent["params"] };
 
 const telemetryWhiteListForFunctionsInjectable = getInjectable({
   id: "telemetry-white-list-for-functions",
-  instantiate: () => [
+  instantiate: (): WhiteListItem[] => [
     ...navigateTo,
     ...helmInjectableIds,
     ...kubeConfigActions,

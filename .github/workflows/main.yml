@@ -34,12 +34,12 @@ jobs:
 
       - name: Generate Extensions API Reference using typedocs
         run: |
-          yarn install
-          yarn run build:docs
+          npm install
+          npm run build:docs
 
       - name: Verify that the markdown is valid
         run: |
-          yarn run mkdocs:verify
+          npm run mkdocs:verify
 
   build:
     name: Deploy docs
@@ -57,7 +57,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install git+https://${{ secrets.GH_TOKEN }}@github.com/lensapp/mkdocs-material-insiders.git
+          pip install mkdocs-material
           pip install mike
 
       - name: Checkout Release from lens
@@ -77,8 +77,8 @@ jobs:
 
       - name: Generate Extensions API Reference using typedocs
         run: |
-          yarn install --frozen-lockfile
-          yarn build:docs
+          npm ci
+          npm run build:docs
 
       - name: mkdocs deploy master
         if: contains(github.ref, 'refs/heads/master')

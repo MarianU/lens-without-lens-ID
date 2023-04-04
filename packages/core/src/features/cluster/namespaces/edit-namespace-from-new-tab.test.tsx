@@ -36,7 +36,7 @@ describe("cluster/namespaces - edit namespace from new tab", () => {
 
     builder.setEnvironmentToClusterFrame();
 
-    builder.beforeWindowStart((windowDi) => {
+    builder.beforeWindowStart(({ windowDi }) => {
       windowDi.override(
         directoryForLensLocalStorageInjectable,
         () => "/some-directory-for-lens-local-storage",
@@ -64,9 +64,11 @@ describe("cluster/namespaces - edit namespace from new tab", () => {
       windowDi.override(callForPatchResourceInjectable, () => callForPatchResourceMock);
     });
 
-    builder.allowKubeResource({
-      apiName: "namespaces",
-      group: "",
+    builder.afterWindowStart(() => {
+      builder.allowKubeResource({
+        apiName: "namespaces",
+        group: "",
+      });
     });
   });
 
@@ -401,8 +403,7 @@ metadata:
                   expect(rendered.baseElement).toMatchSnapshot();
                 });
 
-                // TODO: Not doable at the moment because info panel controls closing of the tab
-                xit("does not close the dock tab", () => {
+                it("does not close the dock tab", () => {
                   expect(
                     rendered.getByTestId("dock-tab-for-some-first-tab-id"),
                   ).toBeInTheDocument();

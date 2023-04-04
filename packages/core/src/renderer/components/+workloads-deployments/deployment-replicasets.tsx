@@ -10,7 +10,7 @@ import { observer } from "mobx-react";
 import type { ReplicaSet } from "../../../common/k8s-api/endpoints";
 import { KubeObjectMenu } from "../kube-object-menu";
 import { Spinner } from "../spinner";
-import { prevDefault, stopPropagation } from "../../utils";
+import { prevDefault, stopPropagation } from "@k8slens/utilities";
 import { DrawerTitle } from "../drawer";
 import { Table, TableCell, TableHead, TableRow } from "../table";
 import { KubeObjectStatusIcon } from "../kube-object-status-icon";
@@ -78,7 +78,7 @@ class NonInjectedDeploymentReplicaSets extends React.Component<DeploymentReplica
           sortSyncWithUrl={false}
           className="box grow"
         >
-          <TableHead flat>
+          <TableHead flat sticky={false}>
             <TableCell className="name" sortBy={sortBy.name}>Name</TableCell>
             <TableCell className="warning"/>
             <TableCell className="namespace" sortBy={sortBy.namespace}>Namespace</TableCell>
